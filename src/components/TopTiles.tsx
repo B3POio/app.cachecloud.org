@@ -1,4 +1,4 @@
-// ── src/components/TopTiles.tsx ──────────────────────────────
+// src/components/TopTiles.tsx
 "use client";
 import useSWR from "swr";
 import Image from "next/image";
@@ -24,15 +24,15 @@ function Tile({
   color?: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
-      <div className="text-sm text-gray-500">{label}</div>
+    <div className="rounded-2xl bg-card text-card-foreground p-4 shadow-sm ring-1 ring-border">
+      <div className="text-sm text-muted-foreground">{label}</div>
       <p
         className="mt-2 text-2xl font-semibold"
-        style={{ color: color ?? "#6B7280" }}
+        style={{ color: color ?? "var(--foreground)" }}
       >
         {value ?? "—"}
       </p>
-      {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
+      {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -55,7 +55,6 @@ export default function TopTiles() {
       <Tile
         label={
           <span className="flex items-center gap-2">
-            {/* You said you saved bitcoin.svg in /public */}
             <Image src="/bitcoin.svg" alt="Bitcoin (BTC)" width={20} height={20} />
             Bitcoin (BTC)
           </span>
@@ -68,7 +67,6 @@ export default function TopTiles() {
       <Tile
         label={
           <span className="flex items-center gap-2">
-            {/* You said you saved ethereum.png in /public */}
             <Image src="/ethereum.png" alt="Ethereum (ETH)" width={20} height={20} />
             Ethereum (ETH)
           </span>
