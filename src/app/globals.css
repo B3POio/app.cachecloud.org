@@ -4,6 +4,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* New dark UI tokens (Discord-like) */
+  --navbar-bg: #2b2d31;
+  --sidebar-bg: #2b2d31;
+  --surface-dark: #313338; /* slightly lighter for hover/active */
 }
 
 /* Tailwind theme bindings */
@@ -19,6 +24,10 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --navbar-bg: #2b2d31;
+    --sidebar-bg: #2b2d31;
+    --surface-dark: #313338;
   }
 }
 
@@ -26,6 +35,10 @@
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
+
+  --navbar-bg: #2b2d31;
+  --sidebar-bg: #2b2d31;
+  --surface-dark: #313338;
 }
 
 /* Body styles */
@@ -41,4 +54,9 @@ body {
   display: flex;
   align-items: center;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Optional: generic hover surface helper (used by links/buttons if desired) */
+.hover-surface:hover {
+  background-color: var(--surface-dark);
 }

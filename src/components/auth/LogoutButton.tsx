@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { signOutAll } from "@/lib/authApi";
+import { LogOut } from "lucide-react";
 
 export default function LogoutButton() {
   const router = useRouter();
@@ -20,10 +21,13 @@ export default function LogoutButton() {
       type="button"
       onClick={handleLogout}
       className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-      aria-label="Toggle theme"
-      title="Toggle theme"
+      aria-label="Log out"
+      title="Log out"
     >
-      <span className="hidden sm:inline"> Log out</span>
+      {/* Icon always visible */}
+      <LogOut className="h-4 w-4" />
+      {/* Text only on sm and up */}
+      <span className="hidden sm:inline">Log out</span>
     </button>
   );
 }

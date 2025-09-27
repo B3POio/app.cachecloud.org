@@ -14,7 +14,7 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+      className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 p-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
       aria-label="Toggle theme"
       title="Toggle theme"
     >
