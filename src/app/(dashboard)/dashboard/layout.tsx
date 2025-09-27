@@ -74,9 +74,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          {/* Spacer to keep content out from under sticky header on mobile */}
-          <div className="md:hidden" aria-hidden="true" style={{ height: headerHeight }} />
-
           <main className="px-4 md:px-6 lg:pr-12 py-4 md:py-6">
             <div className="pt-px">{children}</div>
           </main>
