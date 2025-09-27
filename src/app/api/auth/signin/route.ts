@@ -28,10 +28,10 @@ export async function POST(req: NextRequest) {
 
     const data = await resp.json().catch(() => ({ error: "Invalid JSON from backend" }));
     return NextResponse.json(data, { status: resp.status });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err?.message || "Failed to proxy signin" },
-      { status: 500 }
-    );
+    } catch (err: unknown) {
+    if (err instanceof Error) {
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }
