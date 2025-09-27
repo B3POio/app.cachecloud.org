@@ -1,30 +1,39 @@
-# Use Node.js official image
-FROM node:20-alpine AS base
-
+# -------------------- Deps (installs dev deps too) --------------------
+FROM node:20-alpine AS deps
 WORKDIR /app
-
-# Install dependencies first (better caching)
+# Helpful for some native modules used by Next.js
+RUN apk add --no-cache libc6-compat
 COPY package*.json ./
-RUN npm install --only=production
+# Install ALL deps (including dev) so TypeScript is present for next.config.ts
+RUN npm ci
 
-# Copy source
+# -------------------- Build --------------------
+FROM node:20-alpine AS builder
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Build Next.js app (does not need env values baked in)
+# Build without baking any runtime env; your NEXT_PUBLIC_* will be provided at `docker run`
 RUN npm run build
 
-# Production runtime image
+# -------------------- Runtime (lean) --------------------
 FROM node:20-alpine AS runner
 WORKDIR /app
+ENV NODE_ENV=production
+RUN apk add --no-cache libc6-compat
 
-# Copy only what’s needed for runtime
-COPY --from=base /app/package*.json ./
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/.next ./.next
-COPY --from=base /app/public ./public
+# Copy package files and production-only node_modules
+COPY --from=deps /app/package*.json ./
+COPY --from=deps /app/node_modules ./node_modules
+RUN npm prune --omit=dev
 
-# Expose runtime port
+# Copy the built app
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+
+# Ensure Next respects the port you pass at runtime
+ENV PORT=3015
 EXPOSE 3015
 
-# Default command (runtime env vars will be injected with docker run)
+# Your package.json "start" should be: "next start -p $PORT"
 CMD ["npm", "start"]
