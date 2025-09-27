@@ -41,7 +41,7 @@ export default function SettingsPage() {
       await reauthenticateWithCredential(user, cred);
       await updateEmail(user, emailForm.newEmail.trim());
       showMsg("success", "Email updated successfully.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       showMsg("error", mapFirebaseError(err));
     } finally {
       setLoading(false);
@@ -65,7 +65,7 @@ export default function SettingsPage() {
       await updatePassword(user, pwdForm.newPassword);
       setPwdForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       showMsg("success", "Password updated successfully.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       showMsg("error", mapFirebaseError(err));
     } finally {
       setLoading(false);
@@ -77,7 +77,7 @@ export default function SettingsPage() {
     try {
       await signOut(auth);
       showMsg("success", "Signed out.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       showMsg("error", mapFirebaseError(err));
     } finally {
       setLoading(false);
@@ -240,13 +240,26 @@ export default function SettingsPage() {
   );
 }
 
-function mapFirebaseError(err: any): string {
-  const code = (err?.code || "").toString();
-  const msg = (err?.message || "Something went wrong").toString();
-  if (code.includes("auth/requires-recent-login")) return "Please sign in again and retry this action (security requirement).";
-  if (code.includes("auth/wrong-password")) return "The current password you entered is incorrect.";
-  if (code.includes("auth/weak-password")) return "That password is too weak. Try at least 8–10 chars with a mix of types.";
-  if (code.includes("auth/email-already-in-use")) return "That email is already in use.";
-  if (code.includes("auth/invalid-email")) return "Please enter a valid email address.";
-  return msg;
+function mapFirebaseError(err: unknown): string {
+  if (typeof err === "object" && err !== null) {
+    const { code = "", message = "Something went wrong" } = err as {
+      code?: string;
+      message?: string;
+    };
+
+    if (code.includes("auth/requires-recent-login"))
+      return "Please sign in again and retry this action (security requirement).";
+    if (code.includes("auth/wrong-password"))
+      return "The current password you entered is incorrect.";
+    if (code.includes("auth/weak-password"))
+      return "That password is too weak. Try at least 8–10 chars with a mix of types.";
+    if (code.includes("auth/email-already-in-use"))
+      return "That email is already in use.";
+    if (code.includes("auth/invalid-email"))
+      return "Please enter a valid email address.";
+
+    return message;
+  }
+  return "Something went wrong";
 }
+
