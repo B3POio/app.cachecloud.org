@@ -26,8 +26,12 @@ export default function SignUpPage() {
       await signupViaBackend({ email, password, displayName });
       // signupViaBackend exchanges the customToken and sets client auth state
       router.replace("/dashboard");
-    } catch (err: any) {
-      setError(err?.message || "Failed to sign up");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to sign up");
+      }
     } finally {
       setLoading(false);
     }

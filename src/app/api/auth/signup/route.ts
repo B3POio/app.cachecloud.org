@@ -33,10 +33,9 @@ export async function POST(req: NextRequest) {
       .catch(() => ({ error: "Invalid JSON from backend" }));
 
     return NextResponse.json(data, { status: resp.status });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err?.message || "Failed to proxy signup" },
-      { status: 500 }
-    );
+    } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to sign up";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
+
 }

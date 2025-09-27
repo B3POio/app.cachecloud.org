@@ -39,8 +39,12 @@ export default function SignInPage() {
 
       // 3) Route to dashboard
       router.replace("/dashboard");
-    } catch (err: any) {
-      setError(err?.message || "Failed to sign in");
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Failed to sign in");
+        }
     } finally {
       setLoading(false);
     }
