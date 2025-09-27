@@ -21,7 +21,7 @@ RUN npm run build
 RUN npm prune --production
 
 # Expose app port
-EXPOSE 3000
+EXPOSE 3015
 
 # Start the Next.js server
 CMD ["npm", "start"]
