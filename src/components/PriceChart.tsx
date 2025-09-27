@@ -15,12 +15,12 @@ const COIN_META: Record<
   bitcoin: {
     name: "Bitcoin (BTC)",
     color: "#F7931A",
-    logo: "/bitcoin.svg",     // you added bitcoin.svg to /public
+    logo: "/bitcoin.svg",
   },
   ethereum: {
     name: "Ethereum (ETH)",
     color: "#627EEA",
-    logo: "/ethereum.png",    // you saved ethereum.png to /public
+    logo: "/ethereum.png",
   },
 };
 
@@ -45,10 +45,10 @@ export default function PriceChart({
   const meta = COIN_META[coin];
 
   return (
-    <div className={`rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 ${className}`}>
+    <div className={`rounded-2xl bg-card text-card-foreground p-4 shadow-sm ring-1 ring-border ${className}`}>
       <div className="mb-4 flex items-center gap-2">
         <Image src={meta.logo} alt={meta.name} width={20} height={20} />
-        <h3 className="text-lg font-semibold text-gray-500">
+        <h3 className="text-lg font-semibold text-muted-foreground">
           {meta.name} • Last 30 days
         </h3>
       </div>
@@ -56,14 +56,24 @@ export default function PriceChart({
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="t" minTickGap={24} />
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+            <XAxis dataKey="t" minTickGap={24} tick={{ fill: "var(--muted-foreground)" }} />
             <YAxis
               domain={["auto", "auto"]}
               tickFormatter={(v) => `$${Math.round(v).toLocaleString()}`}
               width={80}
+              tick={{ fill: "var(--muted-foreground)" }}
             />
-            <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
+            <Tooltip
+              formatter={(v: number) => `$${v.toLocaleString()}`}
+              contentStyle={{
+                background: "var(--popover)",
+                border: "1px solid var(--border)",
+                color: "var(--popover-foreground)",
+                borderRadius: "0.75rem",
+              }}
+              labelStyle={{ color: "var(--popover-foreground)" }}
+            />
             <Line
               type="monotone"
               dataKey="price"

@@ -1,3 +1,4 @@
+// src/components/SideBar.tsx
 "use client";
 
 import Link from "next/link";
@@ -42,7 +43,7 @@ export default function Sidebar({
         <Link
           key={item.href}
           href={item.href}
-          className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)]"
+          className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
         >
           <span className={"truncate " + (isCollapsed ? "sr-only" : "inline")}>
             {item.label}
@@ -73,7 +74,7 @@ export default function Sidebar({
           <button
             type="button"
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="hidden md:inline-flex items-center justify-center rounded-md border border-border px-2 py-1 hover:bg-[var(--surface-dark)]"
+            className="hidden md:inline-flex items-center justify-center rounded-md border border-border px-2 py-1 hover:bg-[var(--surface-dark)] text-foreground"
             onClick={onToggleCollapse}
           >
             {/* Chevron icon rotates when collapsed */}
@@ -118,7 +119,7 @@ export default function Sidebar({
               <button
                 type="button"
                 aria-label="Close navigation menu"
-                className="inline-flex items-center justify-center rounded-md border border-border px-2 py-1 hover:bg-[var(--surface-dark)]"
+                className="inline-flex items-center justify-center rounded-md border border-border px-2 py-1 hover:bg-[var(--surface-dark)] text-foreground"
                 onClick={onClose}
               >
                 <svg
@@ -139,28 +140,28 @@ export default function Sidebar({
               <nav className="space-y-1">
                 <Link
                   href="/dashboard"
-                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)]"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
                   onClick={onClose}
                 >
                   Dashboard
                 </Link>
                 <Link
                   href="/dashboard/bitcoin"
-                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)]"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
                   onClick={onClose}
                 >
                   Bitcoin
                 </Link>
                 <Link
                   href="/dashboard/ethereum"
-                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)]"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
                   onClick={onClose}
                 >
                   Ethereum
                 </Link>
                 <Link
                   href="/dashboard/settings"
-                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)]"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
                   onClick={onClose}
                 >
                   Settings
