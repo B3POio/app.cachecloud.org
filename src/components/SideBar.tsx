@@ -82,7 +82,7 @@ export default function Sidebar({
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               fill="currentColor"
-              className={["h-4 w-4 transition-transform", isCollapsed ? "rotate-180" : ""].join(" ")}
+              className={["h-4 w-4 transition-transform", !isCollapsed ? "rotate-180" : ""].join(" ")}
             >
               <path
                 fillRule="evenodd"
