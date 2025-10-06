@@ -52,10 +52,10 @@ export default function SignInPage() {
 
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+      <div className="w-full max-w-md rounded-2xl bg-[var(--card)] p-8 shadow-sm ring-1 ring-[var(--border)]">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome back 👋</h1>
-          <p className="mt-2 text-base text-gray-900 dark:text-gray-200">
+          <h1 className="text-3xl font-bold text-[var(--foreground)]">Welcome back 👋</h1>
+          <p className="mt-2 text-base text-[var(--muted-foreground)]">
             Sign in to access your admin dashboard and live crypto insights.
           </p>
         </div>
@@ -63,7 +63,7 @@ export default function SignInPage() {
         <form onSubmit={onSubmit} className="space-y-5">
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-              <Mail className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+              <Mail className="h-4 w-4 text-[var(--muted-foreground)]" />
             </span>
             <input
               id="email"
@@ -71,14 +71,14 @@ export default function SignInPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-xl border border-gray-300 bg-white px-10 py-2.5 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-700 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:placeholder:text-gray-300 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-10 py-2.5 text-sm text-[var(--foreground)] shadow-sm outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-4 focus:ring-[color:var(--ring)]/30"
               placeholder="you@example.com"
             />
           </div>
 
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-              <Lock className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+              <Lock className="h-4 w-4 text-[var(--muted-foreground)]" />
             </span>
             <input
               id="password"
@@ -86,33 +86,34 @@ export default function SignInPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-xl border border-gray-300 bg-white px-10 py-2.5 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-700 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:placeholder:text-gray-300 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-10 py-2.5 text-sm text-[var(--foreground)] shadow-sm outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-4 focus:ring-[color:var(--ring)]/30"
               placeholder="••••••••"
             />
             <button
               type="button"
               onClick={() => setShowPw((s) => !s)}
               aria-label={showPw ? "Hide password" : "Show password"}
-              className="absolute inset-y-0 right-3 inline-flex items-center text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+              className="absolute inset-y-0 right-3 inline-flex items-center text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
             >
               {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-900/30 dark:text-red-200 dark:ring-red-900">
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200
+                           dark:bg-red-900/30 dark:text-red-200 dark:ring-red-900">
               {error}
             </p>
           )}
 
-          <Button type="submit" className="w-full rounded-xl py-2.5 text-sm" disabled={loading}>
+          <Button type="submit" className="w-full rounded-xl py-2.5 text-sm">
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-900 dark:text-gray-400">
+        <p className="mt-6 text-center text-sm text-[var(--muted-foreground)]">
           Don’t have an account?{" "}
-          <Link href="/signup" className="font-medium text-blue-700 underline hover:no-underline dark:text-blue-400">
+          <Link href="/signup" className="font-medium underline hover:no-underline text-[var(--primary)]">
             Create one
           </Link>
         </p>
