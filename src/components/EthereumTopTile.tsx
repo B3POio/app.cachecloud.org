@@ -7,100 +7,150 @@ import type { CoinStats as BaseStats } from "./BitcoinTopTile";
 type NullableNum = number | null | undefined;
 
 export type EthStats = BaseStats & {
-  // keep optional if you add it later:
+  // new fractional daily change (0..1). If not present, we’ll fallback to change24hPct/100.
+  change24h?: NullableNum;
+  // optional future field if you add it later
   stakedUsd?: NullableNum;
 };
 
 type Fetcher = () => Promise<EthStats>;
 
 type TileProps = {
-  stats?: EthStats;     // optional SSR data
-  fetcher?: Fetcher;    // optional custom fetcher
+  stats?: EthStats;
+  fetcher?: Fetcher;
   className?: string;
 };
 
-const formatCurrency = (n: NullableNum) =>
-  n == null
-    ? "—"
-    : new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }).format(n);
+const tile =
+  "rounded-2xl border border-border bg-[var(--surface)] p-4 shadow-sm transition-colors";
 
-const formatPercent = (n: NullableNum) =>
-  n == null ? "—" : `${(n * 100).toFixed(2)}%`;
+function formatNumber(n: NullableNum) {
+  if (n == null || Number.isNaN(n)) return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: 2,
+    }).format(n as number);
+  } catch {
+    return String(n);
+  }
+}
 
-function Delta({ change24hPct }: { change24hPct: NullableNum }) {
-  if (change24hPct == null) return <span className="text-muted-foreground">—</span>;
-  const positive = change24hPct >= 0;
+function formatCurrency(n: NullableNum) {
+  if (n == null || Number.isNaN(n)) return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2,
+    }).format(n as number);
+  } catch {
+    return `$${n}`;
+  }
+}
+
+function formatPercent(fraction: NullableNum) {
+  if (fraction == null || Number.isNaN(fraction)) return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "percent",
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    }).format(fraction as number);
+  } catch {
+    return `${((fraction as number) * 100).toFixed(2)}%`;
+  }
+}
+
+function Delta({ changeFraction }: { changeFraction: NullableNum }) {
+  if (changeFraction == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const positive = changeFraction >= 0;
   return (
-    <span className={`flex items-center gap-1 ${positive ? "text-green-600" : "text-red-600"}`}>
+    <span
+      className={`inline-flex items-center gap-1 text-sm ${
+        positive ? "text-green-600" : "text-red-600"
+      }`}
+    >
       {positive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
-      {formatPercent(change24hPct)}
+      {formatPercent(changeFraction)}
     </span>
   );
 }
 
-export default function EthereumTopTile({ stats, fetcher, className = "" }: TileProps) {
-  const [data, setData] = useState<EthStats | null>(stats ?? null);
+export default function EthereumTopTile({
+  stats,
+  fetcher = fetchEthereumStats,
+  className = "",
+}: TileProps) {
+  const [data, setData] = useState<EthStats | undefined>(stats);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-
-    if (stats) {
-      setData(stats);
-      return () => { mounted = false; };
-    }
-
-    const effectiveFetcher = fetcher ?? fetchEthereumStats;
-
-    effectiveFetcher()
-      .then((d) => mounted && setData(d))
-      .catch((e) => {
-        console.error(e);
-        if (mounted) setError("Failed to load ETH data");
-      });
-
+    let active = true;
+    if (stats) return; // if provided via props, don't refetch
+    (async () => {
+      try {
+        const s = await fetcher();
+        if (!active) return;
+        setData(s);
+      } catch (e: any) {
+        if (!active) return;
+        setError(e?.message ?? "Failed to load");
+      }
+    })();
     return () => {
-      mounted = false;
+      active = false;
     };
   }, [stats, fetcher]);
 
-  const tile =
-    "rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm transition-colors";
+  // change24h now expected as a fraction (0..1). Fallback to change24hPct / 100 for backward compat.
+  const changeFraction =
+    data?.change24h ??
+    (data?.change24hPct != null ? (data.change24hPct as number) / 100 : null);
 
   return (
     <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-4 ${className}`}>
+      {/* Price + daily change */}
       <div className={tile}>
         <div className="text-sm text-muted-foreground">ETH Price</div>
         <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
           {error ? "—" : formatCurrency(data?.priceUsd)}
         </div>
         <div className="mt-1 text-xs">
-          {error ? <span className="text-muted-foreground">—</span> : <Delta change24hPct={data?.change24hPct} />}
+          {error ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            <Delta changeFraction={changeFraction} />
+          )}
         </div>
       </div>
 
+      {/* Market Cap */}
       <div className={tile}>
-        <div className="text-sm text-muted-foreground">ETH Market Cap</div>
+        <div className="text-sm text-muted-foreground">Market Cap</div>
         <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
           {error ? "—" : formatCurrency(data?.marketCapUsd)}
         </div>
       </div>
 
+      {/* 24h Volume */}
       <div className={tile}>
-        <div className="text-sm text-muted-foreground">ETH 24h Volume</div>
+        <div className="text-sm text-muted-foreground">24h Volume</div>
         <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
           {error ? "—" : formatCurrency(data?.volume24hUsd)}
         </div>
       </div>
 
+      {/* Dominance */}
       <div className={tile}>
-        <div className="text-sm text-muted-foreground">ETH Dominance</div>
+        <div className="text-sm text-muted-foreground">Dominance</div>
         <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
-          {error ? "—" : (data?.dominancePct == null ? "—" : formatPercent(data.dominancePct))}
+          {error
+            ? "—"
+            : data?.dominancePct == null
+            ? "—"
+            : formatPercent(data.dominancePct)}
         </div>
       </div>
     </div>

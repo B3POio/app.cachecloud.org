@@ -56,6 +56,8 @@ export async function GET(req: Request) {
       }
     }
 
+    const change24h = change24hPct == null ? null : change24hPct / 100;
+
     if (globalRes.ok) {
       const global = await globalRes.json();
       const total = global?.marketCapUsd ?? null;
@@ -65,7 +67,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json(
-      { priceUsd, change24hPct, marketCapUsd, volume24hUsd, dominancePct },
+      { priceUsd, change24h, change24hPct, marketCapUsd, volume24hUsd, dominancePct },
       { status: 200 }
     );
   } catch (err: any) {
