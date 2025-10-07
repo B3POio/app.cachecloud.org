@@ -1,85 +1,75 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { getApiUrl } from "@/lib/getApiUrl";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
+export const runtime = "nodejs";
 
-type CGSimplePrice = {
-  ethereum?: {
-    usd?: number;
-    usd_market_cap?: number;
-    usd_24h_vol?: number;
-    usd_24h_change?: number; // percent, e.g. -3.42
-  };
-};
-
-type CGGlobal = {
-  data?: {
-    total_market_cap?: Record<string, number>;
-    market_cap_percentage?: { eth?: number };
-  };
-};
-
-function num(n: unknown): number | null {
-  return typeof n === "number" && Number.isFinite(n) ? n : null;
+async function getAuthHeader(req: Request) {
+  const hdr = req.headers.get("authorization");
+  if (hdr?.startsWith("Bearer ")) return hdr;
+  const store = await cookies();
+  const token = store.get("__session")?.value || store.get("idToken")?.value;
+  return token ? `Bearer ${token}` : undefined;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const headers: Record<string, string> = {
-      "User-Agent": "CLM-Dashboard/1.0 (Next.js App Route)",
-      // Optional if you have a CoinGecko key:
-      // "x-cg-pro-api-key": process.env.COINGECKO_API_KEY ?? "",
-      // "x-cg-demo-api-key": process.env.COINGECKO_DEMO_KEY ?? "",
-    };
-    Object.keys(headers).forEach((k) => !headers[k] && delete headers[k]);
+    const API_BASE = getApiUrl();
+    const auth = await getAuthHeader(req);
+    if (!auth) {
+      return NextResponse.json(
+        { error: "Missing Authorization bearer token" },
+        { status: 401 }
+      );
+    }
 
-    const priceUrl =
-      "https://api.coingecko.com/api/v3/simple/price" +
-      "?ids=ethereum&vs_currencies=usd" +
-      "&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true";
-
-    const globalUrl = "https://api.coingecko.com/api/v3/global";
-
-    const [priceRes, globalRes] = await Promise.all([
-      fetch(priceUrl, { headers, cache: "no-store" }),
-      fetch(globalUrl, { headers, cache: "no-store" }),
+    const [sumRes, globalRes] = await Promise.all([
+      fetch(`${API_BASE}/api/crypto/summary?symbols=ETH`, {
+        headers: { Authorization: auth },
+        // @ts-ignore
+        next: { revalidate },
+      }),
+      fetch(`${API_BASE}/api/crypto/global`, {
+        headers: { Authorization: auth },
+        // @ts-ignore
+        next: { revalidate },
+      }),
     ]);
 
-    if (!priceRes.ok) {
-      return NextResponse.json({ error: "CoinGecko price request failed" }, { status: priceRes.status });
-    }
-    if (!globalRes.ok) {
-      return NextResponse.json({ error: "CoinGecko global request failed" }, { status: globalRes.status });
-    }
+    let priceUsd: number | null = null;
+    let change24hPct: number | null = null;
+    let marketCapUsd: number | null = null;
+    let volume24hUsd: number | null = null;
+    let dominancePct: number | null = null;
 
-    const priceJson = (await priceRes.json()) as CGSimplePrice;
-    const globalJson = (await globalRes.json()) as CGGlobal;
-
-    const priceUsd = num(priceJson?.ethereum?.usd);
-    const marketCapUsd = num(priceJson?.ethereum?.usd_market_cap);
-    const volume24hUsd = num(priceJson?.ethereum?.usd_24h_vol);
-
-    const change24hPct =
-      priceJson?.ethereum?.usd_24h_change != null
-        ? Number(priceJson.ethereum.usd_24h_change) / 100
+    if (sumRes.ok) {
+      const summary = await sumRes.json();
+      const row = Array.isArray(summary?.data)
+        ? summary.data.find((x: any) => x.symbol === "ETH")
         : null;
+      if (row) {
+        priceUsd = row.priceUsd ?? null;
+        change24hPct = row.change24hPct ?? null;
+        marketCapUsd = row.marketCapUsd ?? null;
+        volume24hUsd = row.volume24hUsd ?? null;
+      }
+    }
 
-    const dominancePct =
-      globalJson?.data?.market_cap_percentage?.eth != null
-        ? Number(globalJson.data.market_cap_percentage.eth) / 100
-        : marketCapUsd && num(globalJson?.data?.total_market_cap?.usd)
-        ? marketCapUsd / Number(globalJson.data!.total_market_cap!.usd)
-        : null;
+    if (globalRes.ok) {
+      const global = await globalRes.json();
+      const total = global?.marketCapUsd ?? null;
+      if (marketCapUsd != null && total) {
+        dominancePct = total > 0 ? marketCapUsd / total : null; // fraction 0..1
+      }
+    }
 
-    return NextResponse.json({
-      priceUsd,
-      marketCapUsd,
-      volume24hUsd,
-      change24hPct,
-      dominancePct,
-    });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Unexpected error fetching ethereum data" }, { status: 500 });
+    return NextResponse.json(
+      { priceUsd, change24hPct, marketCapUsd, volume24hUsd, dominancePct },
+      { status: 200 }
+    );
+  } catch (err: any) {
+    console.error("[/api/crypto/ethereum] proxy failed:", err?.message || err);
+    return NextResponse.json({ error: "Failed", detail: err?.message }, { status: 500 });
   }
 }
