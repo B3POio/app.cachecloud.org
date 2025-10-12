@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getApiUrl } from "@/lib/getApiUrl";
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 export const revalidate = 60;
 export const runtime = "nodejs"; // ensure Node runtime for server fetch
 
