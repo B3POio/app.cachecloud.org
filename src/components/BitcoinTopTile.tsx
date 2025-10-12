@@ -7,10 +7,14 @@ type NullableNum = number | null | undefined;
 
 export type CoinStats = {
   priceUsd?: NullableNum;
-  change24hPct?: NullableNum; // -0.034 = -3.4%
+  /** Optional percent value from older routes (e.g., 3.4 for +3.4%). */
+  change24hPct?: NullableNum;
+  /** Preferred: fractional daily change (e.g., 0.034 for +3.4%). */
+  change24h?: NullableNum;
   marketCapUsd?: NullableNum;
   volume24hUsd?: NullableNum;
-  dominancePct?: NullableNum; // 0.52 = 52%
+  /** Fraction (0.52 = 52%) */
+  dominancePct?: NullableNum;
 };
 
 type Fetcher = () => Promise<CoinStats>;
@@ -28,18 +32,18 @@ const formatCurrency = (n: NullableNum) =>
         style: "currency",
         currency: "USD",
         maximumFractionDigits: 0,
-      }).format(n);
+      }).format(n as number);
 
-const formatPercent = (n: NullableNum) =>
-  n == null ? "—" : `${(n * 100).toFixed(2)}%`;
+const formatPercent = (fraction: NullableNum) =>
+  fraction == null ? "—" : `${((fraction as number) * 100).toFixed(2)}%`;
 
-function Delta({ change24hPct }: { change24hPct: NullableNum }) {
-  if (change24hPct == null) return <span className="text-muted-foreground">—</span>;
-  const positive = change24hPct >= 0;
+function Delta({ changeFraction }: { changeFraction: NullableNum }) {
+  if (changeFraction == null) return <span className="text-muted-foreground">—</span>;
+  const positive = changeFraction >= 0;
   return (
     <span className={`flex items-center gap-1 ${positive ? "text-green-600" : "text-red-600"}`}>
       {positive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
-      {formatPercent(change24hPct)}
+      {formatPercent(changeFraction)}
     </span>
   );
 }
@@ -51,13 +55,13 @@ export default function BitcoinTopTile({ stats, fetcher, className = "" }: TileP
   useEffect(() => {
     let mounted = true;
 
-    // If SSR data was provided, nothing to fetch.
     if (stats) {
       setData(stats);
-      return () => { mounted = false; };
+      return () => {
+        mounted = false;
+      };
     }
 
-    // Fallback to internal fetcher if none was passed
     const effectiveFetcher = fetcher ?? fetchBitcoinStats;
 
     effectiveFetcher()
@@ -75,6 +79,12 @@ export default function BitcoinTopTile({ stats, fetcher, className = "" }: TileP
   const tile =
     "rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm transition-colors";
 
+  // New: prefer fractional change from backend (change24h),
+  // fallback to older percent field by converting to fraction.
+  const changeFraction =
+    data?.change24h ??
+    (data?.change24hPct != null ? (data.change24hPct as number) / 100 : null);
+
   return (
     <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-4 ${className}`}>
       <div className={tile}>
@@ -83,7 +93,11 @@ export default function BitcoinTopTile({ stats, fetcher, className = "" }: TileP
           {error ? "—" : formatCurrency(data?.priceUsd)}
         </div>
         <div className="mt-1 text-xs">
-          {error ? <span className="text-muted-foreground">—</span> : <Delta change24hPct={data?.change24hPct} />}
+          {error ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            <Delta changeFraction={changeFraction} />
+          )}
         </div>
       </div>
 
@@ -104,7 +118,7 @@ export default function BitcoinTopTile({ stats, fetcher, className = "" }: TileP
       <div className={tile}>
         <div className="text-sm text-muted-foreground">BTC Dominance</div>
         <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
-          {error ? "—" : (data?.dominancePct == null ? "—" : formatPercent(data.dominancePct))}
+          {error ? "—" : data?.dominancePct == null ? "—" : formatPercent(data.dominancePct)}
         </div>
       </div>
     </div>

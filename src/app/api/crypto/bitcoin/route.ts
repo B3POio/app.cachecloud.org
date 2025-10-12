@@ -1,102 +1,83 @@
+// src/app/api/crypto/bitcoin/route.ts
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { getApiUrl } from "@/lib/getApiUrl";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-// If you need Node (to read process.env reliably on edge-hosted providers), uncomment:
-// export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 60;
+export const runtime = "nodejs";
 
-type CGSimplePrice = {
-  bitcoin?: {
-    usd?: number;
-    usd_market_cap?: number;
-    usd_24h_vol?: number;
-    usd_24h_change?: number;
-  };
-};
-
-type CGGlobal = {
-  data?: {
-    total_market_cap?: { [k: string]: number };
-    market_cap_percentage?: { btc?: number };
-  };
-};
-
-function num(n: unknown): number | null {
-  return typeof n === "number" && Number.isFinite(n) ? n : null;
+async function getAuthHeader(req: Request) {
+  const hdr = req.headers.get("authorization");
+  if (hdr?.startsWith("Bearer ")) return hdr;
+  const store = await cookies();
+  const token = store.get("__session")?.value || store.get("idToken")?.value;
+  return token ? `Bearer ${token}` : undefined;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // Optional key support (if you have one). CoinGecko allows unauthenticated, but this helps with rate limits.
-    const headers: Record<string, string> = {
-      "User-Agent": "CLM-Dashboard/1.0 (Next.js App Route)",
-      // "x-cg-pro-api-key": process.env.COINGECKO_API_KEY ?? "",
-      // Some accounts use "x-cg-demo-api-key"; add it if you have one:
-      // "x-cg-demo-api-key": process.env.COINGECKO_DEMO_KEY ?? "",
-    };
-    // Remove empty headers
-    Object.keys(headers).forEach((k) => !headers[k] && delete headers[k]);
+    const API_BASE = getApiUrl();
+    const auth = await getAuthHeader(req);
+    if (!auth) {
+      return NextResponse.json(
+        { error: "Missing Authorization bearer token" },
+        { status: 401 }
+      );
+    }
 
-    // 1) Price, market cap, volume, 24h change
-    const priceUrl =
-      "https://api.coingecko.com/api/v3/simple/price" +
-      "?ids=bitcoin&vs_currencies=usd" +
-      "&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true";
-
-    // 2) Global data for BTC dominance (CoinGecko returns %)
-    const globalUrl = "https://api.coingecko.com/api/v3/global";
-
-    const [priceRes, globalRes] = await Promise.all([
-      fetch(priceUrl, { headers, cache: "no-store" }),
-      fetch(globalUrl, { headers, cache: "no-store" }),
+    const [sumRes, globalRes] = await Promise.all([
+      fetch(`${API_BASE}/api/crypto/summary?symbols=BTC`, {
+        headers: { Authorization: auth },
+        // @ts-ignore
+        next: { revalidate },
+      }),
+      fetch(`${API_BASE}/api/crypto/global`, {
+        headers: { Authorization: auth },
+        // @ts-ignore
+        next: { revalidate },
+      }),
     ]);
 
-    if (!priceRes.ok) {
-      return NextResponse.json(
-        { error: "CoinGecko price request failed" },
-        { status: priceRes.status }
-      );
-    }
-    if (!globalRes.ok) {
-      return NextResponse.json(
-        { error: "CoinGecko global request failed" },
-        { status: globalRes.status }
-      );
-    }
+    let priceUsd: number | null = null;
+    let change24hPct: number | null = null;
+    let marketCapUsd: number | null = null;
+    let volume24hUsd: number | null = null;
+    let dominancePct: number | null = null;
 
-    const priceJson = (await priceRes.json()) as CGSimplePrice;
-    const globalJson = (await globalRes.json()) as CGGlobal;
-
-    const priceUsd = num(priceJson?.bitcoin?.usd);
-    const marketCapUsd = num(priceJson?.bitcoin?.usd_market_cap);
-    const volume24hUsd = num(priceJson?.bitcoin?.usd_24h_vol);
-
-    // 24h change from CoinGecko is in percent (e.g. -3.42). Convert to fraction for tile (e.g. -0.0342).
-    const change24hPct =
-      priceJson?.bitcoin?.usd_24h_change != null
-        ? Number(priceJson.bitcoin.usd_24h_change) / 100
+    if (sumRes.ok) {
+      const summary = await sumRes.json();
+      const row = Array.isArray(summary?.data)
+        ? summary.data.find((x: any) => x.symbol === "BTC")
         : null;
+      if (row) {
+        priceUsd = row.priceUsd ?? null;
+        change24hPct = row.change24hPct ?? null;
+        marketCapUsd = row.marketCapUsd ?? null;
+        volume24hUsd = row.volume24hUsd ?? null;
+      }
+    }
 
-    // Dominance percentage from /global is already % (e.g. 51.2). Convert to fraction.
-    const dominancePct =
-      globalJson?.data?.market_cap_percentage?.btc != null
-        ? Number(globalJson.data.market_cap_percentage.btc) / 100
-        : marketCapUsd && num(globalJson?.data?.total_market_cap?.usd)
-        ? marketCapUsd / Number(globalJson!.data!.total_market_cap!.usd)
-        : null;
+    const change24h = change24hPct == null ? null : change24hPct / 100;
 
-    return NextResponse.json({
-      priceUsd,
-      marketCapUsd,
-      volume24hUsd,
-      change24hPct, // fraction (±0.0342 = ±3.42%)
-      dominancePct, // fraction (0.512 = 51.2%)
-    });
-  } catch (err) {
-    console.error(err);
+    if (globalRes.ok) {
+      const global = await globalRes.json();
+      const total = global?.marketCapUsd ?? null;
+      // Prefer computed dominance; fallback to provider's dominance (Paprika returns percent)
+      if (marketCapUsd != null && total) {
+        dominancePct = total > 0 ? marketCapUsd / total : null; // fraction 0..1
+      } else if (global?.btcDominancePct != null) {
+        dominancePct = Number(global.btcDominancePct) / 100; // convert percent -> fraction
+      }
+    }
+
     return NextResponse.json(
-      { error: "Unexpected error fetching bitcoin data" },
-      { status: 500 }
+      { priceUsd, change24h, change24hPct, marketCapUsd, volume24hUsd, dominancePct },
+      { status: 200 }
     );
+  } catch (err: any) {
+    console.error("[/api/crypto/bitcoin] proxy failed:", err?.message || err);
+    return NextResponse.json({ error: "Failed", detail: err?.message }, { status: 500 });
   }
 }

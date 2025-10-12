@@ -1,37 +1,58 @@
-import { NextRequest, NextResponse } from "next/server";
-import {getApiUrl} from "@/lib/getApiUrl";
+import { NextResponse } from "next/server";
+import { getApiUrl } from "@/lib/getApiUrl";
 
-// never cache this
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
-
     if (!email || !password) {
-      return NextResponse.json(
-        { error: "email and password are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email and password required" }, { status: 400 });
     }
 
-    const base = (getApiUrl() || "").toString().replace(/\/$/, "");
-    const backendUrl = `${base}/api/auth/signin`;
-
-    const resp = await fetch(backendUrl, {
+    const API_BASE = getApiUrl();
+    const r = await fetch(`${API_BASE}/api/auth/signin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      cache: "no-store",
       body: JSON.stringify({ email, password }),
     });
 
-    const data = await resp.json().catch(() => ({ error: "Invalid JSON from backend" }));
-    return NextResponse.json(data, { status: resp.status });
-    } catch (err: unknown) {
-    if (err instanceof Error) {
-      return NextResponse.json({ error: err.message }, { status: 500 });
+    const data = await r.json();
+    if (!r.ok) {
+      return NextResponse.json({ error: "Sign in failed", detail: data }, { status: r.status });
     }
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+
+    // Backend returns: { uid, idToken, refreshToken, expiresIn }
+    const idToken = data.idToken as string | undefined;
+    const refreshToken = data.refreshToken as string | undefined;
+    const expiresInSec = Math.max(60, Number(data.expiresIn || 3600)); // default 1h
+
+    if (!idToken) {
+      return NextResponse.json({ error: "No idToken in response" }, { status: 500 });
+    }
+
+    const res = NextResponse.json({ uid: data.uid, expiresIn: expiresInSec });
+
+    // Set HttpOnly session cookie with the ID token so your other routes can read it
+    res.cookies.set("__session", idToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: Math.min(expiresInSec, 55 * 60), // ~55m to renew before expiry
+    });
+
+    // (Optional) store refresh token for a future refresh endpoint
+    if (refreshToken) {
+      res.cookies.set("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      });
+    }
+
+    return res;
+  } catch (err: any) {
+    return NextResponse.json({ error: "Sign in route error", detail: err?.message }, { status: 500 });
   }
 }
