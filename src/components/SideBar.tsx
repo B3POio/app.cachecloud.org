@@ -36,6 +36,7 @@ export default function Sidebar({
     <nav className="space-y-1">
       {[
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard/portfolio", label: "Portfolio" },
         { href: "/dashboard/bitcoin", label: "Bitcoin" },
         { href: "/dashboard/ethereum", label: "Ethereum" },
         { href: "/dashboard/settings", label: "Settings" },
@@ -144,6 +145,13 @@ export default function Sidebar({
                   onClick={onClose}
                 >
                   Dashboard
+                </Link>
+                <Link
+                  href="/dashboard/portfolio"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
+                  onClick={onClose}
+                >
+                  Portfolio
                 </Link>
                 <Link
                   href="/dashboard/bitcoin"

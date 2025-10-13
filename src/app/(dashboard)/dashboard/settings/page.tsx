@@ -1,83 +1,188 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { auth } from "@/lib/firebase";
+import * as React from "react";
+import type { User } from "firebase/auth";
 import {
-  signOut,
-  updateEmail,
-  updatePassword,
-  reauthenticateWithCredential,
   EmailAuthProvider,
+  GoogleAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  verifyBeforeUpdateEmail,
+  updatePassword,
+  sendPasswordResetEmail,
   onAuthStateChanged,
-  User,
 } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+
+type MsgKind = "success" | "error" | "info";
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<User | null>(auth.currentUser);
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [user, setUser] = React.useState<User | null>(auth.currentUser);
+  const [loading, setLoading] = React.useState(false);
 
-  const showMsg = (type: "success" | "error", text: string) => {
-    setMsg({ type, text });
-    setTimeout(() => setMsg(null), 4500);
-  };
+  // --- Email form state ---
+  const [emailForm, setEmailForm] = React.useState({
+    newEmail: auth.currentUser?.email || "",
+    currentPassword: "", // only used for password-provider accounts
+  });
 
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  // --- Password form state (optional immediate change) ---
+  const [pwdForm, setPwdForm] = React.useState({
+    currentPassword: "",
+    newPassword: "",
+  });
 
-  // ----- Update Email -----
-  const [emailForm, setEmailForm] = useState({ newEmail: "", currentPassword: "" });
-  useEffect(() => {
-    if (user?.email) setEmailForm((f) => ({ ...f, newEmail: user.email! }));
+  const [msg, setMsg] = React.useState<{ kind: MsgKind; text: string } | null>(null);
+
+  React.useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u?.email) {
+        setEmailForm((f) => ({ ...f, newEmail: u.email! }));
+      }
+    });
+    return unsub;
+  }, []);
+
+  function showMsg(kind: MsgKind, text: string) {
+    setMsg({ kind, text });
+    setTimeout(() => setMsg(null), 5000);
+  }
+
+  function primaryProviderId(u: User | null) {
+    return u?.providerData?.[0]?.providerId || null;
+  }
+
+  function mapFirebaseError(err: unknown): string {
+    const code = (err as any)?.code || (err as any)?.message || String(err);
+    if (typeof code !== "string") return "Something went wrong.";
+    if (code.includes("auth/requires-recent-login")) return "Please reauthenticate and try again.";
+    if (code.includes("auth/invalid-credential") || code.includes("auth/wrong-password"))
+      return "Your current password is incorrect.";
+    if (code.includes("auth/email-already-in-use")) return "That email is already in use.";
+    if (code.includes("auth/invalid-email")) return "Please enter a valid email address.";
+    if (code.includes("auth/weak-password")) return "Password is too weak.";
+    if (code.includes("auth/popup-closed-by-user")) return "Sign-in popup was closed.";
+    return code.replace("Firebase:", "").trim();
+  }
+
+  // -------------------------
+  // Mirror authed email to backend/Firestore AFTER it actually changes
+  // -------------------------
+  async function mirrorEmail() {
+    if (!auth.currentUser) return;
+    try {
+      // Force-refresh to get a token that reflects the current email/claims
+      const token = await auth.currentUser.getIdToken(true);
+      await fetch("/api/crypto/settings", {
+        method: "PUT",
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (e) {
+      console.warn("Mirror email failed", e);
+    }
+  }
+
+  // When user's email actually changes (after verification), mirror it
+  React.useEffect(() => {
+    if (user?.email) {
+      void mirrorEmail();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.email]);
 
-  const handleUpdateEmail = async (e: React.FormEvent) => {
+  // -------------------------
+  // Update Email (provider-aware reauth + verification)
+  // -------------------------
+  const handleUpdateEmail: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     if (!user) return showMsg("error", "You must be signed in.");
-    if (!emailForm.newEmail) return showMsg("error", "Email cannot be empty.");
-    if (!emailForm.currentPassword) return showMsg("error", "Please enter your current password.");
+    const nextEmail = emailForm.newEmail.trim();
+    if (!nextEmail) return showMsg("error", "Email cannot be empty.");
+
     setLoading(true);
     try {
-      const cred = EmailAuthProvider.credential(user.email || "", emailForm.currentPassword);
-      await reauthenticateWithCredential(user, cred);
-      await updateEmail(user, emailForm.newEmail.trim());
-      showMsg("success", "Email updated successfully.");
-    } catch (err: unknown) {
+      const providerId = primaryProviderId(user);
+
+      // 1) Reauthenticate:
+      if (providerId === "password") {
+        if (!emailForm.currentPassword) {
+          setLoading(false);
+          return showMsg("error", "Please enter your current password.");
+        }
+        const cred = EmailAuthProvider.credential(user.email || "", emailForm.currentPassword);
+        await reauthenticateWithCredential(user, cred);
+      } else {
+        const provider = new GoogleAuthProvider();
+        await reauthenticateWithPopup(user, provider);
+      }
+
+      // 2) Safer: send verification to new email; Auth switches after confirmation
+      await verifyBeforeUpdateEmail(user, nextEmail);
+      showMsg(
+        "success",
+        "Verification email sent. After you confirm from your inbox, reopen this page; your email will sync automatically."
+      );
+
+      // 3) Refresh local state; do NOT mirror yet (email not changed until verification)
+      await auth.currentUser?.reload();
+      const fresh = auth.currentUser;
+      setUser(fresh || null);
+      setEmailForm((f) => ({ ...f, currentPassword: "" }));
+    } catch (err) {
       showMsg("error", mapFirebaseError(err));
     } finally {
       setLoading(false);
     }
   };
 
-  // ----- Change Password -----
-  const [pwdForm, setPwdForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return showMsg("error", "You must be signed in.");
-    if (!pwdForm.currentPassword) return showMsg("error", "Enter your current password.");
-    if (!pwdForm.newPassword) return showMsg("error", "Enter a new password.");
-    if (pwdForm.newPassword.length < 8) return showMsg("error", "New password must be at least 8 characters.");
-    if (pwdForm.newPassword !== pwdForm.confirmPassword) return showMsg("error", "New passwords do not match.");
+  // -------------------------
+  // Password reset via email link
+  // -------------------------
+  const handlePasswordReset = async () => {
+    if (!user?.email) return showMsg("error", "No email found on your account.");
     setLoading(true);
     try {
-      const cred = EmailAuthProvider.credential(user.email || "", pwdForm.currentPassword);
-      await reauthenticateWithCredential(user, cred);
-      await updatePassword(user, pwdForm.newPassword);
-      setPwdForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      await sendPasswordResetEmail(auth, user.email);
+      showMsg("success", `Password reset email sent to ${user.email}.`);
+    } catch (err) {
+      showMsg("error", mapFirebaseError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -------------------------
+  // Optional: immediate password update (reauth + updatePassword)
+  // -------------------------
+  const handleUpdatePassword: React.FormEventHandler<HTMLFormElement> = async (e) => {
+    e.preventDefault();
+    if (!user) return showMsg("error", "You must be signed in.");
+    const { newPassword, currentPassword } = pwdForm;
+    if (!newPassword || newPassword.length < 8) {
+      return showMsg("error", "New password must be at least 8 characters.");
+    }
+    setLoading(true);
+    try {
+      const providerId = primaryProviderId(user);
+      if (providerId === "password") {
+        if (!currentPassword) {
+          setLoading(false);
+          return showMsg("error", "Please enter your current password.");
+        }
+        const cred = EmailAuthProvider.credential(user.email || "", currentPassword);
+        await reauthenticateWithCredential(user, cred);
+      } else {
+        const provider = new GoogleAuthProvider();
+        await reauthenticateWithPopup(user, provider);
+      }
+
+      await updatePassword(user, newPassword);
       showMsg("success", "Password updated successfully.");
-    } catch (err: unknown) {
-      showMsg("error", mapFirebaseError(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    setLoading(true);
-    try {
-      await signOut(auth);
-      showMsg("success", "Signed out.");
-    } catch (err: unknown) {
+      setPwdForm({ currentPassword: "", newPassword: "" });
+    } catch (err) {
       showMsg("error", mapFirebaseError(err));
     } finally {
       setLoading(false);
@@ -85,47 +190,49 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+    <div className="mx-auto max-w-3xl p-4 md:p-6">
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Settings</h1>
 
       {msg && (
         <div
+          className={[
+            "mb-4 rounded-lg border px-3 py-2 text-sm",
+            msg.kind === "success" && "border-green-300 bg-green-50 text-green-800",
+            msg.kind === "error" && "border-red-300 bg-red-50 text-red-800",
+            msg.kind === "info" && "border-blue-300 bg-blue-50 text-blue-800",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           role="status"
-          className={`rounded-lg border p-3 text-sm ${
-            msg.type === "success"
-              ? "border-green-200 bg-green-50 text-green-800"
-              : "border-red-200 bg-red-50 text-red-800"
-          }`}
         >
           {msg.text}
         </div>
       )}
 
-      {/* GRID */}
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-        {/* Update Email (Card) */}
-        <article className="flex h-full flex-col rounded-xl border border-gray-200 p-5">
-          <header>
-            <h2 className="text-lg font-medium">Update Email</h2>
-            <p className="mt-1 text-sm text-gray-500">Confirm with your current password.</p>
-          </header>
+      {/* Email Card */}
+      <div className="mb-6 rounded-2xl border bg-card p-4">
+        <h2 className="mb-1 text-lg font-medium">Email</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Update the email associated with your account. You may be asked to reauthenticate.
+        </p>
 
-          <form onSubmit={handleUpdateEmail} className="mt-4 flex h-full flex-col gap-4">
-            <div className="grid gap-1">
-              <label htmlFor="newEmail" className="text-sm font-medium">
-                New Email
-              </label>
-              <input
-                id="newEmail"
-                type="email"
-                required
-                value={emailForm.newEmail}
-                onChange={(e) => setEmailForm((f) => ({ ...f, newEmail: e.target.value }))}
-                className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
-                placeholder="you@example.com"
-              />
-            </div>
+        <form onSubmit={handleUpdateEmail} className="grid gap-4">
+          <div className="grid gap-1">
+            <label htmlFor="newEmail" className="text-sm font-medium">
+              New Email
+            </label>
+            <input
+              id="newEmail"
+              type="email"
+              value={emailForm.newEmail}
+              onChange={(e) => setEmailForm((f) => ({ ...f, newEmail: e.target.value }))}
+              className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
+              placeholder="you@example.com"
+            />
+          </div>
 
+          {/* Only show current password for password-based accounts */}
+          {primaryProviderId(user) === "password" && (
             <div className="grid gap-1">
               <label htmlFor="emailCurrentPassword" className="text-sm font-medium">
                 Current Password
@@ -133,34 +240,39 @@ export default function SettingsPage() {
               <input
                 id="emailCurrentPassword"
                 type="password"
-                required
                 value={emailForm.currentPassword}
                 onChange={(e) => setEmailForm((f) => ({ ...f, currentPassword: e.target.value }))}
                 className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
                 placeholder="••••••••"
               />
             </div>
+          )}
 
-            <div className="mt-auto flex items-center gap-3">
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-black px-4 text-sm font-medium text-white hover:bg-black/90 disabled:opacity-50"
-              >
-                {loading ? "Saving..." : "Save Email"}
-              </button>
-            </div>
-          </form>
-        </article>
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-60"
+            >
+              {loading ? "Saving…" : "Update Email"}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              We’ll email a verification link to confirm the change.
+            </span>
+          </div>
+        </form>
+      </div>
 
-        {/* Change Password (Card) */}
-        <article className="flex h-full flex-col rounded-xl border border-gray-200 p-5">
-          <header>
-            <h2 className="text-lg font-medium">Change Password</h2>
-            <p className="mt-1 text-sm text-gray-500">Use a strong, unique password.</p>
-          </header>
+      {/* Password Card */}
+      <div className="rounded-2xl border bg-card p-4">
+        <h2 className="mb-1 text-lg font-medium">Password</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Change your password or send yourself a reset link.
+        </p>
 
-          <form onSubmit={handleChangePassword} className="mt-4 flex h-full flex-col gap-4">
+        {/* Optional: direct password change */}
+        <form onSubmit={handleUpdatePassword} className="mb-4 grid gap-4">
+          {primaryProviderId(user) === "password" && (
             <div className="grid gap-1">
               <label htmlFor="currentPassword" className="text-sm font-medium">
                 Current Password
@@ -168,98 +280,47 @@ export default function SettingsPage() {
               <input
                 id="currentPassword"
                 type="password"
-                required
                 value={pwdForm.currentPassword}
                 onChange={(e) => setPwdForm((f) => ({ ...f, currentPassword: e.target.value }))}
                 className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
                 placeholder="••••••••"
               />
             </div>
-
-            <div className="grid gap-1">
-              <label htmlFor="newPassword" className="text-sm font-medium">
-                New Password
-              </label>
-              <input
-                id="newPassword"
-                type="password"
-                required
-                value={pwdForm.newPassword}
-                onChange={(e) => setPwdForm((f) => ({ ...f, newPassword: e.target.value }))}
-                className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
-                placeholder="At least 8 characters"
-              />
-            </div>
-
-            <div className="grid gap-1">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm New Password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                value={pwdForm.confirmPassword}
-                onChange={(e) => setPwdForm((f) => ({ ...f, confirmPassword: e.target.value }))}
-                className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
-                placeholder="Repeat new password"
-              />
-            </div>
-
-            <div className="mt-auto flex items-center gap-3">
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-black px-4 text-sm font-medium text-white hover:bg-black/90 disabled:opacity-50"
-              >
-                {loading ? "Updating..." : "Update Password"}
-              </button>
-            </div>
-          </form>
-        </article>
-
-        {/* Session / Sign out (Card) */}
-        <article className="flex h-full flex-col rounded-xl border border-red-200 bg-red-50 p-5">
-          <header>
-            <h2 className="text-lg font-medium text-red-700">Session</h2>
-            <p className="mt-1 text-sm text-red-700/80">Sign out of this device.</p>
-          </header>
-
-          <div className="mt-auto">
+          )}
+          <div className="grid gap-1">
+            <label htmlFor="newPassword" className="text-sm font-medium">
+              New Password
+            </label>
+            <input
+              id="newPassword"
+              type="password"
+              value={pwdForm.newPassword}
+              onChange={(e) => setPwdForm((f) => ({ ...f, newPassword: e.target.value }))}
+              className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
+              placeholder="At least 8 characters"
+            />
+          </div>
+          <div>
             <button
-              onClick={handleSignOut}
+              type="submit"
               disabled={loading}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-red-300 bg-white px-4 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-60"
             >
-              {loading ? "…" : "Sign out"}
+              {loading ? "Saving…" : "Update Password"}
             </button>
           </div>
-        </article>
+        </form>
+
+        {/* Password reset link */}
+        <button
+          type="button"
+          disabled={loading}
+          onClick={handlePasswordReset}
+          className="inline-flex items-center rounded-lg bg-muted px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 disabled:opacity-60"
+        >
+          Send password reset email
+        </button>
       </div>
     </div>
   );
 }
-
-function mapFirebaseError(err: unknown): string {
-  if (typeof err === "object" && err !== null) {
-    const { code = "", message = "Something went wrong" } = err as {
-      code?: string;
-      message?: string;
-    };
-
-    if (code.includes("auth/requires-recent-login"))
-      return "Please sign in again and retry this action (security requirement).";
-    if (code.includes("auth/wrong-password"))
-      return "The current password you entered is incorrect.";
-    if (code.includes("auth/weak-password"))
-      return "That password is too weak. Try at least 8–10 chars with a mix of types.";
-    if (code.includes("auth/email-already-in-use"))
-      return "That email is already in use.";
-    if (code.includes("auth/invalid-email"))
-      return "Please enter a valid email address.";
-
-    return message;
-  }
-  return "Something went wrong";
-}
-
