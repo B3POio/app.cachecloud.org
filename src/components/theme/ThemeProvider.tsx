@@ -32,7 +32,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(saved);
     applyTheme(saved);
 
-    const listener = (e: MediaQueryListEvent) => {
+    const listener = () => {
       if ((localStorage.getItem("theme") as Theme) === "system") {
         applyTheme("system");
       }
