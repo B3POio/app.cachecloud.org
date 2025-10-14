@@ -36,8 +36,10 @@ export default function Sidebar({
     <nav className="space-y-1">
       {[
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard/portfolio", label: "Portfolio" },
         { href: "/dashboard/bitcoin", label: "Bitcoin" },
         { href: "/dashboard/ethereum", label: "Ethereum" },
+        { href: "/dashboard/wallets", label: "Wallets" },
         { href: "/dashboard/settings", label: "Settings" },
       ].map((item) => (
         <Link
@@ -146,6 +148,13 @@ export default function Sidebar({
                   Dashboard
                 </Link>
                 <Link
+                  href="/dashboard/portfolio"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
+                  onClick={onClose}
+                >
+                  Portfolio
+                </Link>
+                <Link
                   href="/dashboard/bitcoin"
                   className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
                   onClick={onClose}
@@ -158,6 +167,13 @@ export default function Sidebar({
                   onClick={onClose}
                 >
                   Ethereum
+                </Link>
+                <Link
+                  href="/dashboard/wallets"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
+                  onClick={onClose}
+                >
+                  Wallets
                 </Link>
                 <Link
                   href="/dashboard/settings"
