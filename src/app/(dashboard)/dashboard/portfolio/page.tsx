@@ -252,7 +252,24 @@ async function BitcoinView() {
         <Tile label="BTC Dominance" value="100%" />
       </section>
 
-      <WalletsTable wallets={wallets} unitFmt={sats} unitLabel="sats" />
+      {wallets.length === 0 ? (
+        <div className="rounded-2xl border p-6 bg-white">
+          <p className="font-medium text-black">No wallets for account, add wallets</p>
+          <p className="text-sm text-black mt-1">
+            Connect at least one wallet address to see portfolio stats.
+          </p>
+          <div className="mt-4">
+            <Link
+              href="/dashboard/wallets"
+              className="inline-flex items-center rounded-xl border border-black px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+            >
+              Go to Wallets
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <WalletsTable wallets={wallets} unitFmt={sats} unitLabel="sats" />
+      )}
       <FlowTable points={points} unitFmt={sats} unitLabel="sats" />
     </main>
   );
@@ -320,8 +337,24 @@ async function EthereumView() {
         </div>
         <Tile label="ETH Dominance" value="100%" />
       </section>
-
-      <WalletsTable wallets={wallets} unitFmt={(n) => eth(n)} unitLabel="ETH" />
+      {wallets.length === 0 ? (
+        <div className="rounded-2xl border p-6 bg-white">
+          <p className="font-medium text-black">No wallets for account, add wallets</p>
+          <p className="text-sm text-black mt-1">
+            Connect at least one wallet address to see portfolio stats.
+          </p>
+          <div className="mt-4">
+            <Link
+              href="/dashboard/wallets"
+              className="inline-flex items-center rounded-xl border border-black px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+            >
+              Go to Wallets
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <WalletsTable wallets={wallets} unitFmt={sats} unitLabel="sats" />
+      )}
       <FlowTable points={points} unitFmt={(n) => eth(n)} unitLabel="ETH" />
     </main>
   );
