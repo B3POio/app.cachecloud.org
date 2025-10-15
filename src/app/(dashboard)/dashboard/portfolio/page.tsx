@@ -199,7 +199,7 @@ async function BitcoinView() {
 
   if (summary.status === 401 || chart.status === 401) {
     return (
-      <main className="mx-auto max-w-3xl p-6 space-y-6">
+      <main className="mx-auto max-w-3xl p-2 space-y-6">
         <h1 className="text-2xl font-semibold">Bitcoin Portfolio</h1>
         <div className="rounded-2xl border p-6 bg-amber-50">
           <p className="font-medium">Please sign in to view your portfolio.</p>
@@ -213,6 +213,8 @@ async function BitcoinView() {
   const wallets = summary.data?.wallets ?? [];
   const points = chart.data?.points ?? [];
   const range = chart.data?.range ?? "30d";
+  const hasWallets = wallets.length > 0;
+
 
   const btcUsd = toNumNull(stats.data?.priceUsd) ?? 0;
   const changeFraction =
@@ -227,7 +229,7 @@ async function BitcoinView() {
   const totalTxs = wallets.reduce((sum, w) => sum + (typeof w.txCount === "number" ? w.txCount : 0), 0);
 
   return (
-    <main className="mx-auto max-w-4xl p-6 space-y-8">
+    <main className="mx-auto max-w-4xl p-1 pt-6 space-y-8">
       <section className="space-y-1">
         <h1 className="text-2xl font-semibold">Bitcoin Portfolio</h1>
         {btcUsd > 0 && (
@@ -247,9 +249,11 @@ async function BitcoinView() {
         <Tile label="Total Transactions" value={totalTxs.toLocaleString()} />
         <div className="rounded-2xl border p-4">
           <div className="text-sm text-gray-500">Daily Change</div>
-          <div className="mt-1 text-xl font-semibold"><Delta changeFraction={changeFraction} /></div>
+          <div className="mt-1 text-xl font-semibold">
+            <Delta changeFraction={hasWallets ? (changeFraction ?? 0) : 0} />
+          </div>
         </div>
-        <Tile label="BTC Dominance" value="100%" />
+        <Tile label="BTC Dominance" value={hasWallets ? "100%" : "0%"} />
       </section>
 
       {wallets.length === 0 ? (
@@ -275,17 +279,20 @@ async function BitcoinView() {
   );
 }
 
+// Fully updated EthereumView (drop-in)
 async function EthereumView() {
   const { base, forwardHeaders } = await makeBaseAndHeaders();
   const [summary, chart, stats] = await Promise.all([
+    // ✅ Updated to the canonical ETH portfolio endpoints (aggregate multiple wallets)
     fetchJSON<SummaryResponse>(base, "/api/crypto/portfolio/ethereum?view=summary", forwardHeaders),
     fetchJSON<ChartResponse>(base, "/api/crypto/portfolio/ethereum?view=chart&range=30d", forwardHeaders),
+    // ✅ Coin price/stats endpoint for ETH
     fetchJSON<CoinStats>(base, "/api/crypto/ethereum", forwardHeaders),
   ]);
 
   if (summary.status === 401 || chart.status === 401) {
     return (
-      <main className="mx-auto max-w-3xl p-6 space-y-6">
+      <main className="mx-auto max-w-3xl p-1 space-y-6">
         <h1 className="text-2xl font-semibold">Ethereum Portfolio</h1>
         <div className="rounded-2xl border p-6 bg-amber-50">
           <p className="font-medium">Please sign in to view your portfolio.</p>
@@ -299,6 +306,7 @@ async function EthereumView() {
   const wallets = summary.data?.wallets ?? [];
   const points = chart.data?.points ?? [];
   const range = chart.data?.range ?? "30d";
+  const hasWallets = wallets.length > 0;
 
   const ethUsd = toNumNull(stats.data?.priceUsd) ?? 0;
   const changeFraction =
@@ -308,12 +316,27 @@ async function EthereumView() {
       ? (toNum(stats.data?.change24hPct) / 100)
       : null;
 
+  // ---- Aggregate totals across all wallets (BigInt-safe) ----
+  const toBig = (x: Integerish) => BigInt(String(typeof x === "string" ? x.trim() || "0" : Math.trunc(Number(x)) || 0));
+  const sumField = (key: keyof WalletStat) =>
+    wallets.reduce<bigint>((acc, w) => acc + toBig(w[key] as Integerish), 0n);
+
+  const combinedTotals =
+    wallets.length > 0
+      ? {
+          balance:       sumField("balance").toString(),
+          totalReceived: sumField("totalReceived").toString(),
+          totalSent:     sumField("totalSent").toString(),
+          pendingDelta:  sumField("pendingDelta").toString(),
+        }
+      : totals;
+
   // wei -> ETH -> USD (USD calc is coarse with Number, OK for UI)
-  const portfolioUsd = ethUsd > 0 ? (toNum(totals.balance) / 1e18) * ethUsd : 0;
+  const portfolioUsd = ethUsd > 0 ? (toNum(combinedTotals.balance) / 1e18) * ethUsd : 0;
   const totalTxs = wallets.reduce((sum, w) => sum + (typeof w.txCount === "number" ? w.txCount : 0), 0);
 
   return (
-    <main className="mx-auto max-w-4xl p-6 space-y-8">
+    <main className="mx-auto max-w-4xl p-1 pt-6 space-y-8">
       <section className="space-y-1">
         <h1 className="text-2xl font-semibold">Ethereum Portfolio</h1>
         {ethUsd > 0 && (
@@ -325,18 +348,25 @@ async function EthereumView() {
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label="Portfolio Value" value={ethUsd > 0 ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(portfolioUsd) : "—"} wide />
-        <Tile label="Balance" value={eth(totals.balance)} />
-        <Tile label="Total Received" value={eth(totals.totalReceived)} />
-        <Tile label="Total Sent" value={eth(totals.totalSent)} />
-        <Tile label="Pending Δ" value={eth(totals.pendingDelta)} />
+        <StatTile
+          label="Portfolio Value"
+          value={ethUsd > 0 ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(portfolioUsd) : "—"}
+          wide
+        />
+        <Tile label="Balance"        value={eth(combinedTotals.balance)} />
+        <Tile label="Total Received" value={eth(combinedTotals.totalReceived)} />
+        <Tile label="Total Sent"     value={eth(combinedTotals.totalSent)} />
+        <Tile label="Pending Δ"      value={eth(combinedTotals.pendingDelta)} />
         <Tile label="Total Transactions" value={totalTxs.toLocaleString()} />
         <div className="rounded-2xl border p-4">
           <div className="text-sm text-gray-500">Daily Change</div>
-          <div className="mt-1 text-xl font-semibold"><Delta changeFraction={changeFraction} /></div>
+          <div className="mt-1 text-xl font-semibold">
+            <Delta changeFraction={hasWallets ? (changeFraction ?? 0) : 0} />
+          </div>
         </div>
-        <Tile label="ETH Dominance" value="100%" />
+        <Tile label="ETH Dominance" value={hasWallets ? "100%" : "0%"} />
       </section>
+
       {wallets.length === 0 ? (
         <div className="rounded-2xl border p-6 bg-white">
           <p className="font-medium text-black">No wallets for account, add wallets</p>
@@ -353,12 +383,15 @@ async function EthereumView() {
           </div>
         </div>
       ) : (
-        <WalletsTable wallets={wallets} unitFmt={sats} unitLabel="sats" />
+        // ✅ Fixed: use ETH formatter for ETH wallets table
+        <WalletsTable wallets={wallets} unitFmt={(n) => eth(n)} unitLabel="ETH" />
       )}
+
       <FlowTable points={points} unitFmt={(n) => eth(n)} unitLabel="ETH" />
     </main>
   );
 }
+
 
 // ======================= Reusable UI bits =======================
 function Tile({ label, value }: { label: string; value: string | number }) {
@@ -369,9 +402,10 @@ function Tile({ label, value }: { label: string; value: string | number }) {
     </div>
   );
 }
+
 function StatTile({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div className={`rounded-2xl border p-4 ${wide ? "sm:col-span-2 lg:col-span-1" : ""}`}>
+    <div className={`rounded-2xl border p-4 ${wide ? "sm:col-span-1 lg:col-span-1" : ""}`}>
       <div className="text-sm text-gray-500 font-medium">{label}</div>
       <div className="text-2xl font-semibold mt-1">{value}</div>
     </div>
@@ -485,7 +519,7 @@ export default async function PortfolioSwitcherPage({
   return (
     <div>
       {/* Tabs */}
-      <div className="mx-auto max-w-4xl px-6 pt-6">
+      <div className="mx-auto max-w-4xl px-1 pt-2">
         <div className="inline-flex items-center gap-2 rounded-xl border p-1 bg-white">
           <Link
             href="?chain=btc"
