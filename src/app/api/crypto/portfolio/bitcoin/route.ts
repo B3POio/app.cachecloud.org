@@ -26,8 +26,8 @@ export async function GET(req: Request) {
     const backend = getApiUrl();
     const endpoint =
       view === "chart"
-        ? `${backend}/api/portfolio/chart?chain=btc&range=${encodeURIComponent(range)}`
-        : `${backend}/api/portfolio/summary?chain=btc`;
+        ? `${backend}/api/portfolio/btc/chart?chain=btc&range=${encodeURIComponent(range)}`
+        : `${backend}/api/portfolio/btc/summary?chain=btc`;
 
     // Compose upstream headers
     const authHeader = await getAuthHeader(req);
