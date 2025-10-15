@@ -1,4 +1,3 @@
-// src/app/(dashboard)/dashboard/portfolio/page.tsx
 import Link from "next/link";
 import { headers } from "next/headers";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
@@ -58,7 +57,81 @@ function formatIntegerish(x: Integerish): string {
   return neg ? `-${grouped}` : grouped;
 }
 function sats(n: Integerish) { return `${formatIntegerish(n)} sats`; }
-function wei(n: Integerish)  { return `${formatIntegerish(n)} wei`; }
+
+// ---- ETH formatting (wei -> ETH) with BigInt-safe rounding ----
+function toBigIntClean(x: Integerish): { neg: boolean; abs: bigint } {
+  let s = typeof x === "string" ? x : Math.trunc(Number(x)).toString();
+  s = s.trim();
+  let neg = false;
+  if (s.startsWith("-")) {
+    neg = true;
+    s = s.slice(1);
+  }
+  s = s.replace(/[^\d]/g, "");
+  if (s.length === 0) s = "0";
+  return { neg, abs: BigInt(s) };
+}
+function groupThousands(s: string): string {
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+/**
+ * Format wei as ETH string like "1,234.56789 ETH".
+ * - BigInt-precise conversion.
+ * - Rounds to `places` decimals (default 6).
+ * - Trims trailing zeros.
+ */
+function eth(x: Integerish, places = 6): string {
+  const { neg, abs } = toBigIntClean(x);
+  const WEI_PER_ETH = 10n ** 18n;
+
+  let intPart = abs / WEI_PER_ETH;
+  let frac = abs % WEI_PER_ETH; // 0..(1e18-1)
+
+  // fractional 18-digit, zero-padded
+  let frac18 = frac.toString().padStart(18, "0");
+
+  // rounding to `places` decimals
+  if (places > 0) {
+    const keep = frac18.slice(0, places);
+    const next = frac18.slice(places, places + 1); // digit for rounding
+    let rounded = keep;
+    if (next && next >= "5") {
+      // add 1 to the kept string as integer with carry
+      let carry = 1;
+      const arr = keep.split("");
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const d = arr[i].charCodeAt(0) - 48 + carry;
+        if (d >= 10) {
+          arr[i] = "0";
+          carry = 1;
+        } else {
+          arr[i] = String(d);
+          carry = 0;
+          break;
+        }
+      }
+      if (carry === 1) {
+        // 9.999 -> carry to integer part
+        intPart = intPart + 1n;
+        rounded = "0".repeat(places);
+      } else {
+        rounded = arr.join("");
+      }
+    }
+    // trim trailing zeros
+    rounded = rounded.replace(/0+$/, "");
+    const intStr = groupThousands(intPart.toString());
+    const sign = neg ? "-" : "";
+    return rounded ? `${sign}${intStr}.${rounded} ETH` : `${sign}${intStr} ETH`;
+  } else {
+    // no decimals
+    if (frac >= 5n * (10n ** 17n)) {
+      intPart = intPart + 1n; // round half-up
+    }
+    const sign = neg ? "-" : "";
+    return `${sign}${groupThousands(intPart.toString())} ETH`;
+  }
+}
 
 // Accepts either unix seconds or "YYYY-MM-DD"
 function fmtDate(t: number | string): string {
@@ -218,7 +291,7 @@ async function EthereumView() {
       ? (toNum(stats.data?.change24hPct) / 100)
       : null;
 
-  // wei -> ETH -> USD
+  // wei -> ETH -> USD (USD calc is coarse with Number, OK for UI)
   const portfolioUsd = ethUsd > 0 ? (toNum(totals.balance) / 1e18) * ethUsd : 0;
   const totalTxs = wallets.reduce((sum, w) => sum + (typeof w.txCount === "number" ? w.txCount : 0), 0);
 
@@ -236,10 +309,10 @@ async function EthereumView() {
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile label="Portfolio Value" value={ethUsd > 0 ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(portfolioUsd) : "—"} wide />
-        <Tile label="Balance" value={wei(totals.balance)} />
-        <Tile label="Total Received" value={wei(totals.totalReceived)} />
-        <Tile label="Total Sent" value={wei(totals.totalSent)} />
-        <Tile label="Pending Δ" value={wei(totals.pendingDelta)} />
+        <Tile label="Balance" value={eth(totals.balance)} />
+        <Tile label="Total Received" value={eth(totals.totalReceived)} />
+        <Tile label="Total Sent" value={eth(totals.totalSent)} />
+        <Tile label="Pending Δ" value={eth(totals.pendingDelta)} />
         <Tile label="Total Transactions" value={totalTxs.toLocaleString()} />
         <div className="rounded-2xl border p-4">
           <div className="text-sm text-gray-500">Daily Change</div>
@@ -248,8 +321,8 @@ async function EthereumView() {
         <Tile label="ETH Dominance" value="100%" />
       </section>
 
-      <WalletsTable wallets={wallets} unitFmt={wei} unitLabel="wei" />
-      <FlowTable points={points} unitFmt={wei} unitLabel="wei" />
+      <WalletsTable wallets={wallets} unitFmt={(n) => eth(n)} unitLabel="ETH" />
+      <FlowTable points={points} unitFmt={(n) => eth(n)} unitLabel="ETH" />
     </main>
   );
 }
