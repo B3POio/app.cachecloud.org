@@ -188,6 +188,66 @@ async function fetchJSON<T>(base: string, path: string, headers: Record<string,s
   return { ok: res.ok, status: res.status, data };
 }
 
+// ======================= Cross-chain helpers (for comparison) =======================
+const fmtUSD = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(n);
+
+function sumBigintWalletField(wallets: WalletStat[], key: keyof WalletStat): bigint {
+  const toBig = (x: Integerish) => BigInt(String(typeof x === "string" ? (x.trim() || "0") : Math.trunc(Number(x)) || 0));
+  return wallets.reduce<bigint>((acc, w) => acc + toBig(w[key] as Integerish), 0n);
+}
+
+async function getBtcPortfolioUsd(base: string, headers: Record<string, string>) {
+  const [summary, stats] = await Promise.all([
+    fetchJSON<SummaryResponse>(base, "/api/crypto/portfolio/bitcoin?view=summary", headers),
+    fetchJSON<CoinStats>(base, "/api/crypto/bitcoin", headers),
+  ]);
+  const btcUsd = toNumNull(stats.data?.priceUsd) ?? 0;
+  const satsBalance = toNum(summary.data?.totals?.balance ?? 0);
+  const usd = btcUsd > 0 ? (satsBalance / 1e8) * btcUsd : 0;
+  return { usd, satsBalance, btcUsd };
+}
+
+async function getEthPortfolioUsd(base: string, headers: Record<string, string>) {
+  const [summary, stats] = await Promise.all([
+    fetchJSON<SummaryResponse>(base, "/api/crypto/portfolio/ethereum?view=summary", headers),
+    fetchJSON<CoinStats>(base, "/api/crypto/ethereum", headers),
+  ]);
+  const ethUsd = toNumNull(stats.data?.priceUsd) ?? 0;
+  const wallets = summary.data?.wallets ?? [];
+  const weiBalance = wallets.length > 0
+    ? sumBigintWalletField(wallets, "balance")
+    : BigInt(String(summary.data?.totals?.balance ?? 0));
+  const weiAsNum = Number(weiBalance); // coarse for USD calc only
+  const usd = ethUsd > 0 ? (weiAsNum / 1e18) * ethUsd : 0;
+  return { usd, weiBalance: weiBalance.toString(), ethUsd };
+}
+
+// === Context-aware CompareTile (percent-only for the focused chain) ===
+type Focus = "btc" | "eth";
+function CompareTile({
+  btcUSD,
+  ethUSD,
+  focus,
+}: {
+  btcUSD: number;
+  ethUSD: number;
+  focus: Focus; // "btc" on Bitcoin page, "eth" on Ethereum page
+}) {
+  const total = Math.max(0, btcUSD) + Math.max(0, ethUSD);
+  const label = focus === "btc" ? "BTC" : "ETH";
+  const focusedUsd = focus === "btc" ? btcUSD : ethUSD;
+  const pct = total > 0 ? (focusedUsd / total) * 100 : 0;
+
+  return (
+    <div className="rounded-2xl border p-4 sm:col-span-1 lg:col-span-1">
+      <div className="text-sm text-gray-500 font-medium">{label} Dominance</div>
+      <div className="text-2xl font-semibold">
+        {total > 0 ? `${pct.toFixed(1)}%` : "—"}
+      </div>
+    </div>
+  );
+}
+
 // ======================= BTC & ETH Views =======================
 async function BitcoinView() {
   const { base, forwardHeaders } = await makeBaseAndHeaders();
@@ -215,7 +275,6 @@ async function BitcoinView() {
   const range = chart.data?.range ?? "30d";
   const hasWallets = wallets.length > 0;
 
-
   const btcUsd = toNumNull(stats.data?.priceUsd) ?? 0;
   const changeFraction =
     typeof stats.data?.change24h === "number"
@@ -227,6 +286,9 @@ async function BitcoinView() {
   // sats -> BTC -> USD
   const portfolioUsd = btcUsd > 0 ? (toNum(totals.balance) / 1e8) * btcUsd : 0;
   const totalTxs = wallets.reduce((sum, w) => sum + (typeof w.txCount === "number" ? w.txCount : 0), 0);
+
+  // ===== Also compute ETH to compare =====
+  const other = await getEthPortfolioUsd(base, forwardHeaders);
 
   return (
     <main className="mx-auto max-w-4xl p-1 pt-6 space-y-8">
@@ -241,7 +303,7 @@ async function BitcoinView() {
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label="Portfolio Value" value={btcUsd > 0 ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(portfolioUsd) : "—"} wide />
+        <StatTile label="Portfolio Value" value={btcUsd > 0 ? fmtUSD(portfolioUsd) : "—"} wide />
         <Tile label="Balance" value={sats(totals.balance)} />
         <Tile label="Total Received" value={sats(totals.totalReceived)} />
         <Tile label="Total Sent" value={sats(totals.totalSent)} />
@@ -253,7 +315,8 @@ async function BitcoinView() {
             <Delta changeFraction={hasWallets ? (changeFraction ?? 0) : 0} />
           </div>
         </div>
-        <Tile label="BTC Dominance" value={hasWallets ? "100%" : "0%"} />
+        {/* Context-aware percent tile (BTC focus) */}
+        <CompareTile btcUSD={portfolioUsd} ethUSD={other.usd} focus="btc" />
       </section>
 
       {wallets.length === 0 ? (
@@ -317,23 +380,22 @@ async function EthereumView() {
       : null;
 
   // ---- Aggregate totals across all wallets (BigInt-safe) ----
-  const toBig = (x: Integerish) => BigInt(String(typeof x === "string" ? x.trim() || "0" : Math.trunc(Number(x)) || 0));
-  const sumField = (key: keyof WalletStat) =>
-    wallets.reduce<bigint>((acc, w) => acc + toBig(w[key] as Integerish), 0n);
-
   const combinedTotals =
     wallets.length > 0
       ? {
-          balance:       sumField("balance").toString(),
-          totalReceived: sumField("totalReceived").toString(),
-          totalSent:     sumField("totalSent").toString(),
-          pendingDelta:  sumField("pendingDelta").toString(),
+          balance:       sumBigintWalletField(wallets, "balance").toString(),
+          totalReceived: sumBigintWalletField(wallets, "totalReceived").toString(),
+          totalSent:     sumBigintWalletField(wallets, "totalSent").toString(),
+          pendingDelta:  sumBigintWalletField(wallets, "pendingDelta").toString(),
         }
       : totals;
 
   // wei -> ETH -> USD (USD calc is coarse with Number, OK for UI)
   const portfolioUsd = ethUsd > 0 ? (toNum(combinedTotals.balance) / 1e18) * ethUsd : 0;
   const totalTxs = wallets.reduce((sum, w) => sum + (typeof w.txCount === "number" ? w.txCount : 0), 0);
+
+  // ===== Also compute BTC to compare =====
+  const other = await getBtcPortfolioUsd(base, forwardHeaders);
 
   return (
     <main className="mx-auto max-w-4xl p-1 pt-6 space-y-8">
@@ -350,7 +412,7 @@ async function EthereumView() {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile
           label="Portfolio Value"
-          value={ethUsd > 0 ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(portfolioUsd) : "—"}
+          value={ethUsd > 0 ? fmtUSD(portfolioUsd) : "—"}
           wide
         />
         <Tile label="Balance"        value={eth(combinedTotals.balance)} />
@@ -364,7 +426,8 @@ async function EthereumView() {
             <Delta changeFraction={hasWallets ? (changeFraction ?? 0) : 0} />
           </div>
         </div>
-        <Tile label="ETH Dominance" value={hasWallets ? "100%" : "0%"} />
+        {/* Context-aware percent tile (ETH focus) */}
+        <CompareTile btcUSD={other.usd} ethUSD={portfolioUsd} focus="eth" />
       </section>
 
       {wallets.length === 0 ? (
