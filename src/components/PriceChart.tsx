@@ -157,14 +157,13 @@ export default function PriceChart({
                   aria-selected={active}
                   onClick={() => setRange(r.value)}
                   className={[
-                    // Base layout: more rectangular with mild rounding
                     "h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm font-medium rounded-md",
                     "transition-colors duration-150 select-none",
                     "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     active
-                      ? // Active = white button like CoinGecko
-                        "bg-white text-foreground shadow-sm border border-border"
-                      : // Inactive = subtle grey with hover effect
+                      ? // ✅ Active: white background, black text in dark mode
+                        "bg-white text-foreground shadow-sm border border-border dark:text-black"
+                      : // Inactive: muted background with hover
                         "bg-transparent text-muted-foreground hover:bg-muted/70"
                   ].join(" ")}
                 >
@@ -175,6 +174,7 @@ export default function PriceChart({
           </div>
         </div>
       </div>
+
 
 
 
