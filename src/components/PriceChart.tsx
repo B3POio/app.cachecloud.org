@@ -3,8 +3,9 @@ import React from "react";
 import useSWR from "swr";
 import Image from "next/image";
 import {
-  LineChart,
+  ComposedChart,   // 👈 use ComposedChart
   Line,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -88,6 +89,20 @@ function formatXAxis(ts: number, totalDays: number) {
   });
 }
 
+// Compact price: $950, $10k, $10.5k, $110k
+function formatPrice(n: number) {
+  const v = Number(n);
+  if (Number.isNaN(v)) return "";
+  if (v >= 1000) {
+    // 1 decimal for [1k, 100k); none for >= 100k
+    const use0dp = v >= 100_000;
+    const k = v / 1000;
+    const s = use0dp ? k.toFixed(0) : k.toFixed(1).replace(/\.0$/, "");
+    return `$${s}k`;
+  }
+  return `$${Math.round(v).toLocaleString()}`;
+}
+
 export default function PriceChart({
   coin,
   className = "",
@@ -123,23 +138,35 @@ export default function PriceChart({
         </h3>
       </div>
 
-      {/* Buttons below title */}
-      <div className="w-full mb-3 overflow-hidden">
+      {/* Range buttons */}
+      <div className="w-full mb-3">
         <div className="overflow-x-auto no-scrollbar w-full overscroll-x-contain">
-          <div className="inline-flex flex-nowrap gap-2 py-1 pr-2 whitespace-nowrap">
+          <div
+            role="tablist"
+            aria-label="Select chart range"
+            className="inline-flex gap-0.5 p-1 rounded-lg border border-border 
+                      bg-muted/60 shadow-sm backdrop-blur 
+                      supports-[backdrop-filter]:bg-muted/50"
+          >
             {RANGES.map((r) => {
               const active = r.value === range;
               return (
                 <button
                   key={r.value}
+                  role="tab"
+                  aria-selected={active}
                   onClick={() => setRange(r.value)}
                   className={[
-                    "px-2.5 py-1.5 rounded-xl text-sm transition shrink-0",
+                    // Base layout: more rectangular with mild rounding
+                    "h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm font-medium rounded-md",
+                    "transition-colors duration-150 select-none",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     active
-                      ? "bg-primary text-primary-foreground shadow"
-                      : "bg-muted text-muted-foreground hover:bg-muted/70",
+                      ? // Active = white button like CoinGecko
+                        "bg-white text-foreground shadow-sm border border-border"
+                      : // Inactive = subtle grey with hover effect
+                        "bg-transparent text-muted-foreground hover:bg-muted/70"
                   ].join(" ")}
-                  aria-pressed={active}
                 >
                   {r.label}
                 </button>
@@ -149,27 +176,31 @@ export default function PriceChart({
         </div>
       </div>
 
+
+
       {/* Chart */}
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
+          <ComposedChart data={chartData}>
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+
             <XAxis
               dataKey="label"
               minTickGap={24}
               tick={{ fill: "var(--muted-foreground)" }}
             />
+
+            {/* Right-side Y-axis with compact formatting */}
             <YAxis
               domain={["auto", "auto"]}
-              tickFormatter={(v) =>
-                `$${Math.round(Number(v)).toLocaleString()}`
-              }
-              width={80}
+              tickFormatter={(v) => formatPrice(Number(v))}
+              orientation="right"
+              width={64}
               tick={{ fill: "var(--muted-foreground)" }}
             />
+
             <Tooltip
-              formatter={(v: number) => `$${Number(v).toLocaleString()}`}
-              // ✅ Make payload param readonly-safe and typed loosely
+              formatter={(v: number) => formatPrice(v)}
               labelFormatter={(label: any, payloadArg: unknown) => {
                 const payload = payloadArg as ReadonlyArray<any>;
                 const ts = payload?.[0]?.payload?.t as number | undefined;
@@ -195,6 +226,26 @@ export default function PriceChart({
               }}
               labelStyle={{ color: "var(--popover-foreground)" }}
             />
+
+            {/* Gradient for underfill */}
+            <defs>
+              <linearGradient id={`colorGradient-${coin}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={meta.color} stopOpacity={0.4} />
+                <stop offset="100%" stopColor={meta.color} stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+
+            {/* Area under the line */}
+            <Area
+              type="monotone"
+              dataKey="price"
+              stroke="none"
+              fillOpacity={1}
+              fill={`url(#colorGradient-${coin})`}
+              isAnimationActive={!isLoading}
+            />
+
+            {/* Line on top */}
             <Line
               type="monotone"
               dataKey="price"
@@ -204,7 +255,7 @@ export default function PriceChart({
               strokeWidth={2}
               isAnimationActive={!isLoading}
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

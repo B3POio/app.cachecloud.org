@@ -5,8 +5,8 @@ import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "Crypto Admin",
-  description: "Next.js + Firebase Auth Dashboard",
+  title: "Cache Cloud",
+  description: "Real Economic Data",
 };
 
 // ✅ Add this:
