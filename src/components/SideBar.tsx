@@ -39,6 +39,7 @@ export default function Sidebar({
         { href: "/dashboard/portfolio", label: "Portfolio" },
         { href: "/dashboard/bitcoin", label: "Bitcoin" },
         { href: "/dashboard/ethereum", label: "Ethereum" },
+        { href: "/dashboard/gold", label: "Gold" },
         { href: "/dashboard/wallets", label: "Wallets" },
         { href: "/dashboard/settings", label: "Settings" },
       ].map((item) => (
@@ -167,6 +168,13 @@ export default function Sidebar({
                   onClick={onClose}
                 >
                   Ethereum
+                </Link>
+                <Link
+                  href="/dashboard/gold"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-dark)] text-foreground"
+                  onClick={onClose}
+                >
+                  Gold
                 </Link>
                 <Link
                   href="/dashboard/wallets"
