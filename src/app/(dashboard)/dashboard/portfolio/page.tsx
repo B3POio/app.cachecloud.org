@@ -36,10 +36,15 @@ type ChartPoint = { t: number | string; flow: Integerish; cum: Integerish };
 type ChartResponse = { range: string; points: ChartPoint[]; note?: string };
 
 // ======================= Helpers =======================
-function toNum(n: unknown): number {
-  const x = typeof n === "string" ? Number(n) : (n as number);
-  return Number.isFinite(x) ? x : 0;
-}
+const toMs = (t: number | string | Date) =>
+  typeof t === "number"
+    ? (t > 1e12 ? t : t * 1000) // seconds→ms if needed
+    : Date.parse(String(t));
+
+const toNum = (v: unknown) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+};
 function toNumNull(n: unknown): number | null {
   const x = typeof n === "string" ? Number(n) : typeof n === "number" ? n : NaN;
   return Number.isFinite(x) ? x : null;
@@ -74,6 +79,7 @@ function toBigIntClean(x: Integerish): { neg: boolean; abs: bigint } {
 function groupThousands(s: string): string {
   return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
+
 /**
  * Format wei as ETH string like "1,234.56789 ETH".
  * - BigInt-precise conversion.
@@ -533,12 +539,17 @@ function FlowTable({
   unitFmt: (n: Integerish) => string;
   unitLabel: string;
 }) {
+  // Filter out empty or missing data points, then sort newest first
+  const filteredPoints = (points ?? [])
+    .filter((p) => Number.isFinite(toNum(p?.flow)) && toNum(p.flow) !== 0)
+    .sort((a, b) => toMs(b.t) - toMs(a.t));
+
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">Daily Net Flow</h2>
       <div className="overflow-x-auto rounded-2xl border">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead>
             <tr>
               <th className="text-left px-4 py-2 font-medium text-gray-600">Date (UTC)</th>
               <th className="text-right px-4 py-2 font-medium text-gray-600">Flow ({unitLabel})</th>
@@ -546,14 +557,14 @@ function FlowTable({
             </tr>
           </thead>
           <tbody>
-            {points.map((p, i) => (
+            {filteredPoints.map((p, i) => (
               <tr key={`${p.t}-${i}`} className="border-t">
                 <td className="px-4 py-2">{fmtDate(p.t)}</td>
                 <td className="px-4 py-2 text-right">{unitFmt(p.flow)}</td>
                 <td className="px-4 py-2 text-right">{unitFmt(p.cum)}</td>
               </tr>
             ))}
-            {points.length === 0 && (
+            {filteredPoints.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-6 text-center text-gray-500">
                   No data for selected range.
@@ -566,6 +577,7 @@ function FlowTable({
     </section>
   );
 }
+
 
 // ======================= Main Switcher =======================
 export default async function PortfolioSwitcherPage({
