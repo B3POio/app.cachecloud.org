@@ -22,14 +22,24 @@ const fetcher = (url: string) =>
 function fmtPrice(n?: number | null) {
   if (n == null || Number.isNaN(n)) return "—";
   const v = Number(n);
-  if (v >= 1000) {
-    const use0dp = v >= 100_000;
-    const k = v / 1000;
-    const s = use0dp ? k.toFixed(0) : k.toFixed(1).replace(/\.0$/, "");
-    return `$${s}k`;
+
+  // Always show full dollar amount (no "k" formatting)
+  if (v >= 1) {
+    // If it’s a whole number, show no decimals; if not, show up to 2
+    return `$${v.toLocaleString(undefined, {
+      minimumFractionDigits: v % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    })}`;
   }
-  return `$${Math.round(v).toLocaleString()}`;
+
+  // For values under 1 (e.g., 0.532), keep up to 4 decimals
+  return `$${v.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}`;
 }
+
+
 function fmtPct(n?: number | null) {
   if (n == null || Number.isNaN(n)) return "—";
   const s = Math.abs(n) < 1 ? n.toFixed(2) : n.toFixed(1);
