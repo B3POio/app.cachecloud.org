@@ -549,7 +549,7 @@ function FlowTable({
       <h2 className="text-lg font-semibold">Daily Net Flow</h2>
       <div className="overflow-x-auto rounded-2xl border">
         <table className="min-w-full text-sm">
-          <thead>
+          <thead className="bg-gray-50">
             <tr>
               <th className="text-left px-4 py-2 font-medium text-gray-600">Date (UTC)</th>
               <th className="text-right px-4 py-2 font-medium text-gray-600">Flow ({unitLabel})</th>

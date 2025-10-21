@@ -28,42 +28,44 @@
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
-  /* legacy aliases you’re using */
+  /* legacy aliases */
   --navbar-bg:  #ffffff;
   --sidebar-bg: #f8f9fa;
   --surface-dark: #f0f0f0;
 }
 
-/* Dark theme (applies when .dark is on <html>) */
+/* ========= Dark theme ========= */
 .dark {
-  --background: #0b0d10;
+  --background: #000000;
   --foreground: #e4e6eb;
 
   --primary: #5865f2;
   --primary-foreground: #ffffff;
 
-  --secondary: #2b2d31;
-  --secondary-foreground: #e3e5e8;
+  /* make card + button backgrounds black */
+  --secondary: #000000;
+  --secondary-foreground: #ffffff;
 
-  --muted: #1e1f22;
+  --muted: #111111;
   --muted-foreground: #b9bbbe;
 
-  --card: #1e1f22;
-  --card-foreground: #e4e6eb;
+  --card: #000000;
+  --card-foreground: #ffffff;
 
-  --popover: #1e1f22;
-  --popover-foreground: #e4e6eb;
+  --popover: #000000;
+  --popover-foreground: #ffffff;
 
-  --border: #3f4248;
-  --input: #3f4248;
+  /* keep subtle border for contrast */
+  --border: #1a1a1a;
+  --input: #1a1a1a;
   --ring: #8ea1e1;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
-  --navbar-bg:  #2b2d31;
-  --sidebar-bg: #2b2d31;
-  --surface-dark: #313338;
+  --navbar-bg:  #000000;
+  --sidebar-bg: #000000;
+  --surface-dark: #0a0a0a;
 }
 
 /* ========= Tailwind v4 variable bindings ========= */
@@ -97,21 +99,20 @@ body {
   align-items: stretch;
   transition: background-color .25s ease, color .25s ease;
 }
-* { transition: background-color .25s ease, color .25s ease, border-color .25s ease; }
+* {
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
 
 .hover-surface:hover { background-color: var(--surface-dark); }
 
-/* Optional scrollbar polish */
+/* Scrollbar styling */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
 /* Hide horizontal scrollbar for mobile range selector */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+.no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar {
   -ms-overflow-style: none; /* IE/Edge */
   scrollbar-width: none; /* Firefox */
 }
-

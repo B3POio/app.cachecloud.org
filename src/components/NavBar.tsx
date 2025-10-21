@@ -13,7 +13,6 @@ const routes = [
   { href: "/dashboard/ethereum", label: "Ethereum" },
   { href: "/dashboard/gold", label: "Gold" },
   { href: "/dashboard/wallets", label: "Wallets" },
-  { href: "/dashboard/settings", label: "Settings" },
 ];
 
 export default function CacheCloudNav() {
