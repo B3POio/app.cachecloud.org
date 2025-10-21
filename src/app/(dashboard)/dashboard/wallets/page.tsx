@@ -1,22 +1,28 @@
-// app/wallets/page.tsx
-import { cookies } from "next/headers";
-import { headers } from "next/headers";
+// app/(dashboard)/dashboard/wallets/page.tsx
+import { cookies, headers } from "next/headers";
 import ClientWallets from "./ClientWallets";
 
 type Chain = "btc" | "eth";
 type WalletItem = { id: string; chain: Chain; address: string; createdAt: number };
 
 async function fetchWalletsOnServer(): Promise<WalletItem[]> {
-  // ✅ Await headers() so you can safely call .get()
+  // ✅ Await dynamic APIs
   const h = await headers();
+  const c = await cookies();
 
   const proto = h.get("x-forwarded-proto") ?? "http";
-  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const origin = `${proto}://${host}`;
 
   const res = await fetch(`${origin}/api/crypto/wallets`, {
-    headers: { cookie: cookies().toString() },
     cache: "no-store",
+    headers: {
+      // ✅ Must await cookies() before using its value
+      cookie: c.toString(),
+      // (optional) forward auth header if present
+      ...(h.get("authorization") ? { authorization: h.get("authorization")! } : {}),
+      accept: "application/json",
+    },
   });
 
   if (!res.ok) {
@@ -44,7 +50,6 @@ async function fetchWalletsOnServer(): Promise<WalletItem[]> {
 
   return normalized;
 }
-
 
 export default async function WalletPage() {
   const initialWallets = await fetchWalletsOnServer();

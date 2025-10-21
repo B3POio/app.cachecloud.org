@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type { User } from "firebase/auth";
+import { Settings } from "lucide-react";
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
@@ -190,8 +191,12 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl p-4 md:p-6">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Settings</h1>
+    // At the very top-level wrapper of the page
+    <div className="mx-auto max-w-3xl p-4 md:p-6 bg-background text-foreground">
+      <h1 className="mb-6 flex items-center gap-2 text-2xl font-semibold tracking-tight">
+        <Settings className="h-6 w-6 text-muted-foreground" />
+        Settings
+      </h1>
 
       {msg && (
         <div
@@ -210,7 +215,7 @@ export default function SettingsPage() {
       )}
 
       {/* Email Card */}
-      <div className="mb-6 rounded-2xl border bg-card p-4">
+      <div className="mb-6 rounded-2xl border bg-card text-card-foreground p-4">
         <h2 className="mb-1 text-lg font-medium">Email</h2>
         <p className="mb-4 text-sm text-muted-foreground">
           Update the email associated with your account. You may be asked to reauthenticate.
@@ -226,7 +231,7 @@ export default function SettingsPage() {
               type="email"
               value={emailForm.newEmail}
               onChange={(e) => setEmailForm((f) => ({ ...f, newEmail: e.target.value }))}
-              className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary transition-colors"
               placeholder="you@example.com"
             />
           </div>
@@ -242,29 +247,33 @@ export default function SettingsPage() {
                 type="password"
                 value={emailForm.currentPassword}
                 onChange={(e) => setEmailForm((f) => ({ ...f, currentPassword: e.target.value }))}
-                className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary transition-colors"
                 placeholder="••••••••"
               />
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-60"
-            >
-              {loading ? "Saving…" : "Update Email"}
-            </button>
-            <span className="text-xs text-muted-foreground">
-              We’ll email a verification link to confirm the change.
-            </span>
-          </div>
+          <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-border 
+              bg-secondary text-secondary-foreground hover:bg-[var(--surface-dark)]
+              dark:hover:bg-[#111]
+              px-3 py-2 text-sm font-medium disabled:opacity-50 transition"
+          >
+            {loading ? "Saving…" : "Update Email"}
+          </button>
+          <span className="text-xs text-muted-foreground max-w-[180px] sm:max-w-none leading-tight">
+            We’ll email a verification link to confirm the change.
+          </span>
+        </div>
         </form>
       </div>
 
       {/* Password Card */}
-      <div className="rounded-2xl border bg-card p-4">
+      <div className="mb-6 rounded-2xl border bg-card text-card-foreground p-4">
+
         <h2 className="mb-1 text-lg font-medium">Password</h2>
         <p className="mb-4 text-sm text-muted-foreground">
           Change your password or send yourself a reset link.
@@ -282,7 +291,7 @@ export default function SettingsPage() {
                 type="password"
                 value={pwdForm.currentPassword}
                 onChange={(e) => setPwdForm((f) => ({ ...f, currentPassword: e.target.value }))}
-                className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary transition-colors"
                 placeholder="••••••••"
               />
             </div>
@@ -296,7 +305,7 @@ export default function SettingsPage() {
               type="password"
               value={pwdForm.newPassword}
               onChange={(e) => setPwdForm((f) => ({ ...f, newPassword: e.target.value }))}
-              className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-gray-400"
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary transition-colors"
               placeholder="At least 8 characters"
             />
           </div>
@@ -304,22 +313,28 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border border-border 
+                bg-secondary text-secondary-foreground hover:bg-[var(--surface-dark)]
+                dark:hover:bg-[#111]
+                px-3 py-2 text-sm font-medium disabled:opacity-50 transition"
             >
               {loading ? "Saving…" : "Update Password"}
             </button>
           </div>
         </form>
 
-        {/* Password reset link */}
+        {/* Password reset link
         <button
           type="button"
           disabled={loading}
           onClick={handlePasswordReset}
-          className="inline-flex items-center rounded-lg bg-muted px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border border-border 
+                bg-secondary text-secondary-foreground hover:bg-[var(--surface-dark)]
+                dark:hover:bg-[#111]
+                px-3 py-2 text-sm font-medium disabled:opacity-50 transition"
         >
           Send password reset email
-        </button>
+        </button> */}
       </div>
     </div>
   );

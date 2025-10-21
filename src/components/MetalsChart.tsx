@@ -1,9 +1,8 @@
 "use client";
 import React from "react";
 import useSWR from "swr";
-import Image from "next/image";
 import {
-  ComposedChart,   // 👈 use ComposedChart
+  ComposedChart,
   Line,
   Area,
   XAxis,
@@ -15,27 +14,21 @@ import {
 
 type ChartPoint = { t: number; price: number };
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+// include cookies like your tile/crypto charts
+const fetcher = (url: string) =>
+  fetch(url, { cache: "no-store", credentials: "include" }).then((r) => r.json());
 
-const COIN_META: Record<
-  "bitcoin" | "ethereum",
-  { name: string; color: string; logo: string; symbol: "BTC" | "ETH" }
+const METAL_META: Record<
+  "gold" | "silver" | "platinum" | "palladium",
+  { name: string; color: string; symbol: "XAU" | "XAG" | "XPT" | "XPD" }
 > = {
-  bitcoin: {
-    name: "Bitcoin (BTC)",
-    color: "#F7931A",
-    logo: "/bitcoin.svg",
-    symbol: "BTC",
-  },
-  ethereum: {
-    name: "Ethereum (ETH)",
-    color: "#627EEA",
-    logo: "/ethereum.png",
-    symbol: "ETH",
-  },
+  gold: { name: "Gold (XAU)", color: "#FFD700", symbol: "XAU" }, // bright yellow gold
+  silver: { name: "Silver (XAG)", color: "#C0C0C0", symbol: "XAG" }, // lighter silver
+  platinum: { name: "Platinum (XPT)", color: "#E5E4E2", symbol: "XPT" }, // more metallic platinum
+  palladium: { name: "Palladium (XPD)", color: "#B0C4DE", symbol: "XPD" }, // soft steel blue
 };
 
-// Chart ranges
+// Match PriceChart ranges/buttons
 const RANGES = [
   { label: "1D", value: "1d", days: 1 },
   { label: "2D", value: "2d", days: 2 },
@@ -45,48 +38,50 @@ const RANGES = [
   { label: "30D", value: "30d", days: 30 },
 ];
 
+// Accept { points: [{t,o,h,l,c}] } (ISO t) OR { prices:[[t,price]] } OR { points:[{t,p}] }
 function toChartData(payload: any): ChartPoint[] {
-  if (Array.isArray(payload?.prices)) {
-    return payload.prices.map((p: [number, number]) => ({
-      t: p[0],
-      price: p[1],
-    }));
-  }
+  const arr = Array.isArray(payload?.points)
+    ? payload.points
+    : Array.isArray(payload?.prices)
+    ? payload.prices
+    : [];
 
-  const c = payload?.candles;
-  if (Array.isArray(c) && c.length > 0) {
-    if (typeof c[0] === "object" && !Array.isArray(c[0])) {
-      return c.map((k: any) => ({
-        t: Number(k.time ?? k.t ?? k.timestamp ?? k[0]),
-        price: Number(k.close ?? k.c ?? k[4] ?? k.price ?? k.o ?? 0),
-      }));
-    }
-    return c.map((k: any[]) => ({
-      t: Number(k[0]),
-      price: Number(k[4] ?? k[1] ?? 0),
-    }));
-  }
-  return [];
+  if (!Array.isArray(arr)) return [];
+
+  const out = arr
+    .map((row: any) => {
+      // tuple form: [t, price]
+      if (Array.isArray(row)) {
+        const [t, v] = row;
+        const ts = Number.isFinite(+t) ? +t : Date.parse(String(t)); // accept ISO
+        const price = Number(v);
+        return Number.isFinite(ts) && Number.isFinite(price) ? { t: ts, price } : null;
+      }
+      // object form
+      if (row && typeof row === "object") {
+        const tRaw = row.t ?? row.time ?? row[0];
+        const ts =
+          typeof tRaw === "string" ? Date.parse(tRaw) : Number.isFinite(+tRaw) ? +tRaw : NaN;
+
+        // prefer p/price/value; fallback to close (c)
+        const pRaw = row.p ?? row.price ?? row.value ?? row.c ?? row[1];
+        const price = Number(pRaw);
+
+        return Number.isFinite(ts) && Number.isFinite(price) ? { t: ts, price } : null;
+      }
+      return null;
+    })
+    .filter(Boolean) as ChartPoint[];
+
+  return out;
 }
 
 function formatXAxis(ts: number, totalDays: number) {
   const d = new Date(ts);
   if (totalDays <= 3) {
-    return d.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
-  if (totalDays <= 14) {
-    return d.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    });
-  }
-  return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 // Compact price: $950, $10k, $10.5k, $110k
@@ -94,7 +89,6 @@ function formatPrice(n: number) {
   const v = Number(n);
   if (Number.isNaN(v)) return "";
   if (v >= 1000) {
-    // 1 decimal for [1k, 100k); none for >= 100k
     const use0dp = v >= 100_000;
     const k = v / 1000;
     const s = use0dp ? k.toFixed(0) : k.toFixed(1).replace(/\.0$/, "");
@@ -103,50 +97,44 @@ function formatPrice(n: number) {
   return `$${Math.round(v).toLocaleString()}`;
 }
 
-export default function PriceChart({
-  coin,
+export default function MetalsChart({
+  metal = "gold",
   className = "",
 }: {
-  coin: "bitcoin" | "ethereum";
+  metal?: "gold" | "silver" | "platinum" | "palladium";
   className?: string;
 }) {
-  const meta = COIN_META[coin];
+  const meta = METAL_META[metal];
   const [range, setRange] = React.useState<string>("30d");
   const selected = RANGES.find((r) => r.value === range) ?? RANGES[0];
 
-  const url = `/api/crypto/chart?symbol=${meta.symbol}&range=${encodeURIComponent(
-    range
-  )}&interval=auto&coin=${coin}&days=${selected.days}`;
-
+  // Next.js proxy translates to backend params
+  const url = `/api/metals/chart?metal=${metal}&range=${encodeURIComponent(range)}&days=${selected.days}`;
   const { data, isLoading } = useSWR<any>(url, fetcher, { refreshInterval: 60_000 });
+
   const rawPoints: ChartPoint[] = toChartData(data);
-  const chartData = rawPoints.map((p: ChartPoint) => ({
+  const chartData = rawPoints.map((p) => ({
     t: p.t,
     label: formatXAxis(p.t, selected.days),
     price: p.price,
   }));
 
   return (
-    <div
-      className={`rounded-2xl bg-card text-card-foreground p-4 shadow-sm ring-1 ring-border ${className}`}
-    >
+    <div className={`rounded-2xl bg-card text-card-foreground p-4 shadow-sm ring-1 ring-border ${className}`}>
       {/* Title */}
       <div className="flex items-center gap-2 mb-2">
-        <Image src={meta.logo} alt={meta.name} width={20} height={20} />
-        <h3 className="text-lg font-semibold text-muted-foreground">
-          {meta.name}
-        </h3>
+        <h3 className="text-lg font-semibold text-muted-foreground">{meta.name}</h3>
       </div>
 
-      {/* Range buttons */}
+      {/* Range buttons (identical structure/classes to PriceChart) */}
       <div className="w-full mb-3">
         <div className="overflow-x-auto no-scrollbar w-full overscroll-x-contain">
           <div
             role="tablist"
             aria-label="Select chart range"
             className="inline-flex gap-0.5 p-1 rounded-lg border border-border 
-                      bg-muted/60 shadow-sm backdrop-blur 
-                      supports-[backdrop-filter]:bg-muted/50"
+                       bg-muted/60 shadow-sm backdrop-blur 
+                       supports-[backdrop-filter]:bg-muted/50"
           >
             {RANGES.map((r) => {
               const active = r.value === range;
@@ -161,10 +149,10 @@ export default function PriceChart({
                     "transition-colors duration-150 select-none",
                     "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     active
-                      ? // ✅ Active: white background, black text in dark mode
+                      ? // Active: white bg, black text in dark mode
                         "bg-white text-foreground shadow-sm border border-border dark:text-black"
-                      : // Inactive: muted background with hover
-                        "bg-transparent text-muted-foreground hover:bg-muted/70"
+                      : // Inactive
+                        "bg-transparent text-muted-foreground hover:bg-muted/70",
                   ].join(" ")}
                 >
                   {r.label}
@@ -175,22 +163,12 @@ export default function PriceChart({
         </div>
       </div>
 
-
-
-
       {/* Chart */}
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData}>
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-
-            <XAxis
-              dataKey="label"
-              minTickGap={24}
-              tick={{ fill: "var(--muted-foreground)" }}
-            />
-
-            {/* Right-side Y-axis with compact formatting */}
+            <XAxis dataKey="label" minTickGap={24} tick={{ fill: "var(--muted-foreground)" }} />
             <YAxis
               domain={["auto", "auto"]}
               tickFormatter={(v) => formatPrice(Number(v))}
@@ -198,25 +176,16 @@ export default function PriceChart({
               width={64}
               tick={{ fill: "var(--muted-foreground)" }}
             />
-
             <Tooltip
               formatter={(v: number) => formatPrice(v)}
-              labelFormatter={(label: any, payloadArg: unknown) => {
+              labelFormatter={(_label: any, payloadArg: unknown) => {
                 const payload = payloadArg as ReadonlyArray<any>;
                 const ts = payload?.[0]?.payload?.t as number | undefined;
-                if (!ts) return String(label);
+                if (!ts) return "";
                 const d = new Date(ts);
                 return selected.days <= 3
-                  ? d.toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : d.toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    });
+                  ? d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : d.toLocaleString(undefined, { month: "short", day: "numeric" });
               }}
               contentStyle={{
                 background: "var(--popover)",
@@ -227,25 +196,22 @@ export default function PriceChart({
               labelStyle={{ color: "var(--popover-foreground)" }}
             />
 
-            {/* Gradient for underfill */}
+            {/* Gradient under the line */}
             <defs>
-              <linearGradient id={`colorGradient-${coin}`} x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`metalGradient-${metal}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={meta.color} stopOpacity={0.4} />
                 <stop offset="100%" stopColor={meta.color} stopOpacity={0.0} />
               </linearGradient>
             </defs>
 
-            {/* Area under the line */}
             <Area
               type="monotone"
               dataKey="price"
               stroke="none"
               fillOpacity={1}
-              fill={`url(#colorGradient-${coin})`}
+              fill={`url(#metalGradient-${metal})`}
               isAnimationActive={!isLoading}
             />
-
-            {/* Line on top */}
             <Line
               type="monotone"
               dataKey="price"
