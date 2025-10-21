@@ -16,6 +16,9 @@ export default function DashboardPage() {
 
       {/* Full-width Gold chart */}
       <MetalsChart metal="gold" className="w-full" />
+
+      {/* Full-width Silver chart */}
+      <MetalsChart metal="silver" className="w-full" />
     </div>
   );
 }

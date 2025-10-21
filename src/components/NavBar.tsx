@@ -12,6 +12,7 @@ const routes = [
   { href: "/dashboard/bitcoin", label: "Bitcoin" },
   { href: "/dashboard/ethereum", label: "Ethereum" },
   { href: "/dashboard/gold", label: "Gold" },
+  { href: "/dashboard/silver", label: "Silver" },
   { href: "/dashboard/wallets", label: "Wallets" },
 ];
 
