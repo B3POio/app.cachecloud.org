@@ -1,4 +1,3 @@
-// src/app/(dashboard)/dashboard/page.tsx
 import TopTiles from "@/components/TopTiles";
 import PriceChart from "@/components/PriceChart";
 import MetalsChart from "@/components/MetalsChart";
@@ -8,17 +7,17 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <TopTiles />
 
-      {/* Full-width Bitcoin chart */}
-      <PriceChart coin="bitcoin" className="w-full" />
+      {/* Bitcoin and Ethereum side by side only on xl screens */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <PriceChart coin="bitcoin" className="w-full" />
+        <PriceChart coin="ethereum" className="w-full" />
+      </div>
 
-      {/* Full-width Ethereum chart */}
-      <PriceChart coin="ethereum" className="w-full" />
-
-      {/* Full-width Gold chart */}
-      <MetalsChart metal="gold" className="w-full" />
-
-      {/* Full-width Silver chart */}
-      <MetalsChart metal="silver" className="w-full" />
+      {/* Gold and Silver side by side only on xl screens */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <MetalsChart metal="gold" className="w-full" />
+        <MetalsChart metal="silver" className="w-full" />
+      </div>
     </div>
   );
 }
