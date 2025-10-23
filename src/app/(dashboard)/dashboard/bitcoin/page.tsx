@@ -22,7 +22,7 @@ export default function BitcoinPage() {
 
         {/* New: Polymarket section */}
         <div className="lg:col-span-2">
-          <Polymarket limit={8} livePrices />
+          <Polymarket limit={8} livePrices asset="bitcoin"/>
         </div>
     </div>
   );

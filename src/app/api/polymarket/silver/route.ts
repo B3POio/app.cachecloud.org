@@ -1,4 +1,4 @@
-// src/app/api/polymarket/ethereum/route.ts
+// src/app/api/polymarket/silver/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getApiUrl } from "@/lib/getApiUrl";
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   if (searchParams.has("includeClosed")) qs.set("includeClosed", searchParams.get("includeClosed") as string);
   if (searchParams.has("livePrices")) qs.set("livePrices", searchParams.get("livePrices") as string);
 
-  const url = `${getApiUrl()}/api/polymarket/ethereum${qs.toString() ? `?${qs.toString()}` : ""}`;
+  const url = `${getApiUrl()}/api/polymarket/silver${qs.toString() ? `?${qs.toString()}` : ""}`;
 
   try {
     const resp = await fetch(url, {

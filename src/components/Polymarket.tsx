@@ -2,8 +2,10 @@
 
 import useSWR from "swr";
 import Link from "next/link";
+import React,{ useState } from "react";
 
 type LivePrice = { buy: string | null; sell: string | null };
+
 type Market = {
   eventSlug: string;
   marketSlug: string;
@@ -17,6 +19,7 @@ type Market = {
   endDate: string | null;
   url: string;
 };
+
 type ApiResponse = { count: number; data: Market[] };
 
 const fetcher = (url: string) =>
@@ -111,17 +114,21 @@ function formatNumberish(n: number | string | null | undefined): string {
   return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+
+
 // ---------- Component ----------
 export default function Polymarket({
   limit = 8,
   includeClosed = false,
   livePrices = true,
   className = "",
+  asset = "bitcoin"
 }: {
   limit?: number;
   includeClosed?: boolean;
   livePrices?: boolean;
   className?: string;
+  asset?: string;
 }) {
   const qs = new URLSearchParams();
   qs.set("limit", String(limit));
@@ -129,10 +136,14 @@ export default function Polymarket({
   if (livePrices) qs.set("livePrices", "1");
 
   const { data, error, isLoading, mutate } = useSWR<ApiResponse>(
-    `/api/polymarket/bitcoin?${qs.toString()}`,
+    `/api/polymarket/${asset}?${qs.toString()}`,
     fetcher,
     { refreshInterval: livePrices ? 15000 : 60000 }
   );
+
+  // ✅ Move hook state declarations ABOVE any early returns
+  const [sortBy, setSortBy] = React.useState<"volume" | "liquidity" | null>(null);
+  const [sortDir, setSortDir] = React.useState<"high" | "low">("high");
 
   if (isLoading) {
     return (
@@ -146,10 +157,7 @@ export default function Polymarket({
     return (
       <div className={`rounded-2xl border p-4 ${className}`}>
         <div className="text-sm text-red-600">Error loading Polymarket data.</div>
-        <button
-          onClick={() => mutate()}
-          className="mt-2 rounded-xl border px-3 py-1 text-sm hover:bg-black/5 dark:hover:bg-white/10"
-        >
+        <button onClick={() => mutate()} className="mt-2 rounded-xl border px-3 py-1 text-sm hover:bg-black/5 dark:hover:bg:white/10">
           Retry
         </button>
       </div>
@@ -157,24 +165,63 @@ export default function Polymarket({
   }
 
   const markets = data?.data ?? [];
+  markets.slice(0, 12);
 
-  return (
+  const sortedMarkets = [...markets].sort((a, b) => {
+    if (!sortBy) return 0;
+    const key = sortBy === "volume" ? "volume24hr" : "liquidity";
+    const valA = Number(a[key]) || 0;
+    const valB = Number(b[key]) || 0;
+    return sortDir === "high" ? valB - valA : valA - valB;
+  });
+
+  const topMarkets = sortedMarkets.slice(0, 12);
+
+return (
     <div className={`space-y-3 ${className}`}>
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Polymarket · Bitcoin</h2>
-        <button
-          onClick={() => mutate()}
-          className="rounded-xl border px-3 py-1 text-sm hover:bg-black/5 dark:hover:bg-white/10"
-        >
-          Refresh
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Polymarket · {asset.charAt(0).toUpperCase() + asset.slice(1)}</h2>
+
+        <div className="flex gap-2 items-center">
+          {/* 🔹 Sorting controls */}
+          <div className="flex items-center gap-1">
+            <select
+              className="border rounded-sm mx-1 px-2 py-1 text-sm bg-transparent"
+              value={sortBy ?? ""}
+              onChange={(e) =>
+                setSortBy(e.target.value === "" ? null : (e.target.value as "volume" | "liquidity"))
+              }
+            >
+              <option value="">None</option>
+              <option value="volume">Volume</option>
+              <option value="liquidity">Liquidity</option>
+            </select>
+
+            <select
+              className="border rounded-sm px-2 py-1 text-sm bg-transparent"
+              value={sortDir}
+              onChange={(e) => setSortDir(e.target.value as "high" | "low")}
+              disabled={!sortBy}
+            >
+              <option value="high">High → Low</option>
+              <option value="low">Low → High</option>
+            </select>
+          </div>
+
+          <button
+            onClick={() => mutate()}
+            className="rounded-sm border px-3 py-1 text-sm hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {markets.length === 0 ? (
-        <div className="rounded-2xl border p-4 text-sm opacity-70">No markets found.</div>
+      {topMarkets.length === 0 ? (
+        <div className="rounded-xl border p-4 text-sm opacity-70">No markets found.</div>
       ) : (
         <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {markets.map((m) => {
+          {topMarkets.map((m) => {
             const outcomes = toStringArray(m.outcomes) ?? ["Yes", "No"];
             const prices = toNumberArray(m.gammaOutcomePrices);
             const yes = prices?.[0] ?? null;
@@ -206,7 +253,7 @@ export default function Polymarket({
             return (
               <div key={m.marketSlug} className="rounded-2xl border p-4">
                 <Link href={m.url} target="_blank" className="group inline-flex items-start gap-2">
-                  <span className="line-clamp-3 text-sm font-medium group-hover:underline">
+                  <span className="line-clamp-3 sm:text-lg lg:text-sm font-bold group-hover:underline">
                     {m.question}
                   </span>
                 </Link>
