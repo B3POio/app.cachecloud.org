@@ -38,11 +38,13 @@ const COIN_META: Record<
 // Chart ranges
 const RANGES = [
   { label: "1D", value: "1d", days: 1 },
-  { label: "2D", value: "2d", days: 2 },
   { label: "3D", value: "3d", days: 3 },
   { label: "1W", value: "7d", days: 7 },
   { label: "2W", value: "14d", days: 14 },
-  { label: "30D", value: "30d", days: 30 },
+  { label: "1M", value: "30d", days: 30 },
+  { label: "3M", value: "90d", days: 90 },
+  { label: "6M", value: "190d", days: 180 },
+  { label: "1Y", value: "365d", days: 365 },
 ];
 
 function toChartData(payload: any): ChartPoint[] {
@@ -111,7 +113,7 @@ export default function PriceChart({
   className?: string;
 }) {
   const meta = COIN_META[coin];
-  const [range, setRange] = React.useState<string>("30d");
+  const [range, setRange] = React.useState<string>("1d");
   const selected = RANGES.find((r) => r.value === range) ?? RANGES[0];
 
   const url = `/api/crypto/chart?symbol=${meta.symbol}&range=${encodeURIComponent(
@@ -175,9 +177,6 @@ export default function PriceChart({
         </div>
       </div>
 
-
-
-
       {/* Chart */}
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
@@ -188,15 +187,19 @@ export default function PriceChart({
               dataKey="label"
               minTickGap={24}
               tick={{ fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}
+              tickMargin={10}
             />
-
-            {/* Right-side Y-axis with compact formatting */}
             <YAxis
               domain={["auto", "auto"]}
               tickFormatter={(v) => formatPrice(Number(v))}
               orientation="right"
               width={64}
               tick={{ fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}
+              tickMargin={8}
             />
 
             <Tooltip

@@ -1,7 +1,7 @@
 // src/app/(dashboard)/dashboard/silver/page.tsx
 import React, { Suspense } from "react";
 import TopTile from "@/components/SilverTopTile";
-import MetalChart from "@/components/MetalsChart";
+import MetalChart from "@/components/charts/MetalsChart";
 import Loading from "./loading";
 
 export default function SilverPage() {
@@ -11,13 +11,11 @@ export default function SilverPage() {
         <TopTile />
       </Suspense>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 gap-6">
           <Suspense fallback={<Loading />}>
             <MetalChart metal="silver" />
           </Suspense>
         </div>
-      </div>
     </div>
   );
 }

@@ -1,19 +1,28 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import {
+  Menu,
+  Bitcoin,
+  ChartNoAxesCombined,
+  Coins,
+  Wallet,
+  Medal,
+  BarChart2,
+  Gem
+} from "lucide-react";
 import LogoutButton from "@/components/auth/LogoutButton";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import SettingsButton from "@/components/SettingsButton";
 
 const routes = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard/portfolio", label: "Portfolio" },
-  { href: "/dashboard/bitcoin", label: "Bitcoin" },
-  { href: "/dashboard/ethereum", label: "Ethereum" },
-  { href: "/dashboard/gold", label: "Gold" },
-  { href: "/dashboard/silver", label: "Silver" },
-  { href: "/dashboard/wallets", label: "Wallets" },
+  { href: "/dashboard", label: "Dashboard", icon: ChartNoAxesCombined },
+  { href: "/dashboard/portfolio", label: "Portfolio", icon: BarChart2 },
+  { href: "/dashboard/bitcoin", label: "Bitcoin", icon: Bitcoin },
+  { href: "/dashboard/ethereum", label: "Ethereum", icon: Gem },
+  { href: "/dashboard/gold", label: "Gold", icon: Medal },
+  { href: "/dashboard/silver", label: "Silver", icon: Coins },
+  { href: "/dashboard/wallets", label: "Wallets", icon: Wallet },
 ];
 
 export default function CacheCloudNav() {
@@ -45,7 +54,10 @@ export default function CacheCloudNav() {
       <div className="mx-auto max-w-7xl px-2 sm:px-3 lg:px-4">
         <div className="h-14 flex items-center justify-between">
           {/* Left: Logo */}
-          <Link href="/dashboard" className="font-semibold tracking-tight text-xl select-none">
+          <Link
+            href="/dashboard"
+            className="font-semibold tracking-tight text-xl select-none"
+          >
             Cache <span className="text-neutral-500 dark:text-neutral-400">Cloud</span>
           </Link>
 
@@ -57,9 +69,15 @@ export default function CacheCloudNav() {
               aria-haspopup="menu"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="inline-flex items-center justify-center rounded-xl p-2 outline-none ring-0 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-600 transition"
+              className="
+                inline-flex items-center justify-center rounded-xl p-2
+                border border-border dark:border-neutral-600
+                bg-transparent
+                outline-none ring-0 transition
+                focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-600
+              "
             >
-              <Menu className="h-6 w-6" />
+              <Menu className="h-6 w-6 text-black dark:text-foreground" />
             </button>
 
             {/* Dropdown */}
@@ -75,26 +93,27 @@ export default function CacheCloudNav() {
                 "
               >
                 <div className="py-2">
-                  {routes.map((r) => (
+                  {routes.map(({ href, label, icon: Icon }) => (
                     <Link
-                      key={r.href}
-                      href={r.href}
+                      key={href}
+                      href={href}
                       role="menuitem"
                       onClick={() => setOpen(false)}
-                      className="block px-4 py-2.5 text-sm hover:bg-muted"
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-muted transition-colors"
                     >
-                      {r.label}
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <span>{label}</span>
                     </Link>
                   ))}
 
                   <div className="my-2 h-px bg-border" />
 
-                  {/* Theme toggle and Logout side by side with p-1 spacing */}
+                  {/* Theme toggle + Settings + Logout */}
                   <div className="px-3 pb-3 pt-1 flex items-center gap-1">
                     <ThemeToggle />
                     <SettingsButton />
                     <LogoutButton />
-                </div>
+                  </div>
                 </div>
               </div>
             )}

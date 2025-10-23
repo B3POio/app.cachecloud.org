@@ -2,9 +2,10 @@
 "use client";
 import useSWR from "swr";
 import Image from "next/image";
-import React from "react";
+import React, { useMemo } from "react";
+import { useCurrency } from "../Currency"; 
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = (url: string) => fetch(url, { cache: "no-store", credentials: "include" }).then((r) => r.json());
 
 // Brand colors
 const coinColors: Record<"bitcoin" | "ethereum" | "gold", string> = {
@@ -19,7 +20,7 @@ function Tile({
   sub,
   color,
 }: {
-  label: React.ReactNode;          // <-- allow JSX
+  label: React.ReactNode;     
   value?: string;
   sub?: string;
   color?: string;
@@ -39,18 +40,21 @@ function Tile({
 }
 
 export default function TopTiles() {
+  const { currency } = useCurrency();
   // Existing crypto summary
-  const { data, error } = useSWR("/api/crypto/summary", fetcher, {
-    refreshInterval: 60_000,
-  });
+  const cryptoUrl = useMemo(
+    () => `/api/crypto/summary?currency=usd`,
+    [currency]
+  );
+  const { data, error } = useSWR(cryptoUrl, fetcher, { refreshInterval: 60_000 });
 
   // NEW: gold summary (mirrors your GoldTopTile source/shape)
-  const { data: goldData, error: goldError } = useSWR(
-    "/api/metals/summary?metal=gold",
-    (url: string) =>
-      fetch(url, { cache: "no-store", credentials: "include" }).then((r) => r.json()),
-    { refreshInterval: 60_000 }
+  const goldUrl = useMemo(
+    () => `/api/metals/summary?base=gold&currency=${currency}`,
+    [currency]
   );
+  const { data: goldData, error: goldError } = useSWR(goldUrl, fetcher, { refreshInterval: 60_000 });
+
 
   // Helper to pull the XAU/USD price out of your metals response
   function getGoldPrice(d: any): number | undefined {
@@ -78,8 +82,15 @@ export default function TopTiles() {
       ? n.toLocaleString(undefined, { style: "currency", currency: "USD" })
       : undefined;
 
+  const fmt = (n?: number) =>
+    typeof n === "number"
+      ? new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n)
+      : undefined;
+
   const cap = (n?: number) =>
-    typeof n === "number" ? `$${Math.round(n).toLocaleString()}` : undefined;
+    typeof n === "number"
+      ? new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(n)
+      : undefined;
 
   const goldPrice = getGoldPrice(goldData);
 
@@ -92,7 +103,7 @@ export default function TopTiles() {
             Bitcoin (BTC)
           </span>
         }
-        value={price(data?.bitcoin?.usd)}
+        value={fmt(data?.bitcoin?.usd)}
         sub={error ? "Error loading" : "Updated live"}
         color={coinColors.bitcoin}
       />
@@ -103,7 +114,7 @@ export default function TopTiles() {
             Ethereum (ETH)
           </span>
         }
-        value={price(data?.ethereum?.usd)}
+        value={fmt(data?.ethereum?.usd)}
         sub={error ? "Error loading" : "Updated live"}
         color={coinColors.ethereum}
       />
@@ -111,7 +122,7 @@ export default function TopTiles() {
       {/* NEW: Gold price tile (after Ethereum) */}
       <Tile
         label="Gold (XAU)"
-        value={price(goldPrice)}
+        value={fmt(goldPrice)}
         sub={goldError ? "Error loading" : "Updated live"}
         color={coinColors.gold}
       />
