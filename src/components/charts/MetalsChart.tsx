@@ -175,7 +175,8 @@ export default function MetalsChart({
               minTickGap={24}
               tick={{ fill: "var(--muted-foreground)" }}
               axisLine={false}
-              tickLine={false}    
+              tickLine={false}
+              padding={{ right: 16 }}       
               tickMargin={8}   
             />
             <YAxis
