@@ -21,70 +21,55 @@ async function getAuthHeader(req: Request) {
   return token ? `Bearer ${token}` : undefined;
 }
 
+// src/app/api/crypto/summary/route.ts
 export async function GET(req: Request) {
   try {
     const API_BASE = getApiUrl();
     const auth = await getAuthHeader(req);
-    if (!auth) {
-      return NextResponse.json(
-        {
-          error: "Missing Authorization bearer token",
-          hint:
-            "Send Authorization: Bearer <ID_TOKEN> header, or set an HttpOnly __session/idToken cookie after sign-in.",
-        },
-        { status: 401 }
-      );
-    }
 
     const { searchParams } = new URL(req.url);
     const symbols = searchParams.get("symbols") ?? "BTC,ETH";
+    const currency = (searchParams.get("currency") ?? "USD").toUpperCase(); // <- NEW
+    const curKey = currency.toLowerCase(); // "usd" | "eur" | "gbp"
 
+    // forward currency to backend
     const [summaryRes, globalRes] = await Promise.all([
-      fetch(`${API_BASE}/api/crypto/summary?symbols=${encodeURIComponent(symbols)}`, {
-        headers: { Authorization: auth },
-        // @ts-ignore next: revalidate option supported in app router
-        next: { revalidate },
-      }),
-      fetch(`${API_BASE}/api/crypto/global`, {
-        headers: { Authorization: auth },
-        // @ts-ignore
-        next: { revalidate },
-      }),
+      fetch(
+        `${API_BASE}/api/crypto/summary?symbols=${encodeURIComponent(symbols)}&currency=${encodeURIComponent(currency)}`,
+        { headers: { Authorization: auth! }, next: { revalidate } as any }
+      ),
+      fetch(
+        `${API_BASE}/api/crypto/global?currency=${encodeURIComponent(currency)}`,
+        { headers: { Authorization: auth! }, next: { revalidate } as any }
+      ),
     ]);
 
-    if (!summaryRes.ok) {
-      const txt = await summaryRes.text();
-      return NextResponse.json(
-        { error: "summary failed", detail: txt },
-        { status: summaryRes.status }
-      );
-    }
-    if (!globalRes.ok) {
-      const txt = await globalRes.text();
-      return NextResponse.json(
-        { error: "global failed", detail: txt },
-        { status: globalRes.status }
-      );
-    }
+    const summary = await summaryRes.json(); 
+    const global = await globalRes.json();  
 
-    const summary = await summaryRes.json(); // { symbols, data:[{symbol, priceUsd, ...}], updatedAt }
-    const global = await globalRes.json();   // { marketCapUsd, ... }
-
-    // Back-compat shape for your UI:
-    // { bitcoin: { usd }, ethereum: { usd }, global_market_cap }
+    // build dynamic currency keys for backward-compat shape
     const slugMap: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum" };
     const out: Record<string, any> = {};
 
     for (const row of summary.data || []) {
       const sym = String(row.symbol || "").toUpperCase();
-      const slug = slugMap[sym] ?? sym.toLowerCase(); // handle extras gracefully
-      out[slug] = { usd: row.priceUsd ?? null };
+      const slug = slugMap[sym] ?? sym.toLowerCase();
+      const val =
+        typeof row.price === "number" ? row.price :
+        typeof row.priceUsd === "number" ? row.priceUsd : null;
+      out[slug] = { [curKey]: val }; 
     }
-    out.global_market_cap = global?.marketCapUsd ?? null;
+
+    // global cap with dynamic currency key
+    const capVal =
+      typeof global.marketCap === "number" ? global.marketCap :
+      typeof global.marketCapUsd === "number" ? global.marketCapUsd : null;
+
+    out.global_market_cap = { [curKey]: capVal };
 
     return NextResponse.json(out, { status: 200 });
   } catch (err: any) {
     console.error("[/api/crypto/summary] proxy failed:", err?.message || err);
-    return NextResponse.json({ error: "Failed", detail: err?.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed", detail: err?.message }, { status: 500 });  
   }
 }

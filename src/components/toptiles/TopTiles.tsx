@@ -41,9 +41,11 @@ function Tile({
 
 export default function TopTiles() {
   const { currency } = useCurrency();
-  // Existing crypto summary
+  const curKey = currency.toLowerCase() as "usd" | "eur" | "gbp"; 
+
+  // include active currency in the request so the proxy can shape the response
   const cryptoUrl = useMemo(
-    () => `/api/crypto/summary?currency=usd`,
+    () => `/api/crypto/summary?currency=${currency}`,
     [currency]
   );
   const { data, error } = useSWR(cryptoUrl, fetcher, { refreshInterval: 60_000 });
@@ -77,11 +79,6 @@ export default function TopTiles() {
     return undefined;
   }
 
-  const price = (n?: number) =>
-    typeof n === "number"
-      ? n.toLocaleString(undefined, { style: "currency", currency: "USD" })
-      : undefined;
-
   const fmt = (n?: number) =>
     typeof n === "number"
       ? new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n)
@@ -103,7 +100,7 @@ export default function TopTiles() {
             Bitcoin (BTC)
           </span>
         }
-        value={fmt(data?.bitcoin?.usd)}
+        value={fmt(data?.bitcoin?.[curKey])} 
         sub={error ? "Error loading" : "Updated live"}
         color={coinColors.bitcoin}
       />
@@ -114,7 +111,7 @@ export default function TopTiles() {
             Ethereum (ETH)
           </span>
         }
-        value={fmt(data?.ethereum?.usd)}
+        value={fmt(data?.ethereum?.[curKey])} 
         sub={error ? "Error loading" : "Updated live"}
         color={coinColors.ethereum}
       />
@@ -129,7 +126,7 @@ export default function TopTiles() {
 
       <Tile
         label="Global Crypto Market Cap"
-        value={cap(data?.global_market_cap)}
+        value={cap(data?.global_market_cap?.[curKey])}
         sub={error ? "Error loading" : "From CoinGecko"}
       />
     </div>
