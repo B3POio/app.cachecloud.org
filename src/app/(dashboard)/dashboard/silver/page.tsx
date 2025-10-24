@@ -9,7 +9,7 @@ export default function SilverPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <span>Gold</span>
+          <span>Silver</span>
         </h1>
       </div>
         <TopTile />
