@@ -180,40 +180,79 @@ export default function Polymarket({
 return (
     <div className={`space-y-3 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Polymarket · {asset.charAt(0).toUpperCase() + asset.slice(1)}</h2>
+        <h2 className="text-lg font-semibold">
+          Polymarket · {asset.charAt(0).toUpperCase() + asset.slice(1)}
+        </h2>
 
-        <div className="flex gap-2 items-center">
-          {/* 🔹 Sorting controls */}
-          <div className="flex items-center gap-1">
-            <select
-              className="border rounded-sm mx-1 px-2 py-1 text-sm bg-transparent"
-              value={sortBy ?? ""}
-              onChange={(e) =>
-                setSortBy(e.target.value === "" ? null : (e.target.value as "volume" | "liquidity"))
-              }
-            >
-              <option value="">None</option>
-              <option value="volume">Volume</option>
-              <option value="liquidity">Liquidity</option>
-            </select>
+        {/* Controls: full-width on mobile, compact right-aligned ≥ sm */}
+        <div className="w-full sm:w-auto sm:ml-auto">
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
+            {/* SortBy (medium priority) */}
+            <div className="relative flex-[1.5] min-w-0 sm:flex-none">
+              <select
+                className="
+                  w-full h-9 leading-none text-sm
+                  border rounded-sm px-3 pr-8
+                  bg-transparent appearance-none
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+                "
+                value={sortBy ?? ""}
+                onChange={(e) =>
+                  setSortBy(e.target.value === "" ? null : (e.target.value as "volume" | "liquidity"))
+                }
+              >
+                <option value="">None</option>
+                <option value="volume">Volume</option>
+                <option value="liquidity">Liquidity</option>
+              </select>
+              <svg
+                className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"/>
+              </svg>
+            </div>
 
-            <select
-              className="border rounded-sm px-2 py-1 text-sm bg-transparent"
-              value={sortDir}
-              onChange={(e) => setSortDir(e.target.value as "high" | "low")}
-              disabled={!sortBy}
+            {/* SortDir High/Low (highest priority) */}
+            <div className="relative flex-[2] min-w-0 sm:flex-none">
+              <select
+                className="
+                  w-full h-9 leading-none text-sm
+                  border rounded-sm px-3 pr-8
+                  bg-transparent appearance-none
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+                  disabled:opacity-50
+                "
+                value={sortDir}
+                onChange={(e) => setSortDir(e.target.value as "high" | "low")}
+                disabled={!sortBy}
+              >
+                <option value="high">High → Low</option>
+                <option value="low">Low → High</option>
+              </select>
+              <svg
+                className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"/>
+              </svg>
+            </div>
+
+            {/* Refresh (smallest on mobile) */}
+            <button
+              onClick={() => mutate()}
+              className="
+                flex-[0.8] sm:flex-none
+                h-9 leading-none text-sm
+                rounded-sm border px-3 whitespace-nowrap
+                hover:bg-black/5 dark:hover:bg-white/10
+              "
             >
-              <option value="high">High → Low</option>
-              <option value="low">Low → High</option>
-            </select>
+              Refresh
+            </button>
           </div>
-
-          <button
-            onClick={() => mutate()}
-            className="rounded-sm border px-3 py-1 text-sm hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            Refresh
-          </button>
         </div>
       </div>
 
