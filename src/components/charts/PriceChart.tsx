@@ -1,9 +1,11 @@
+// PriceChart.tsx
 "use client";
 import React from "react";
 import useSWR from "swr";
 import Image from "next/image";
+import { useCurrency } from "@/components/Currency"; // ← add this
 import {
-  ComposedChart,   // 👈 use ComposedChart
+  ComposedChart,
   Line,
   Area,
   XAxis,
@@ -38,10 +40,12 @@ const COIN_META: Record<
 // Chart ranges
 const RANGES = [
   { label: "1D", value: "1d", days: 1 },
+  { label: "2D", value: "2d", days: 2},
   { label: "3D", value: "3d", days: 3 },
   { label: "1W", value: "7d", days: 7 },
   { label: "2W", value: "14d", days: 14 },
   { label: "1M", value: "30d", days: 30 },
+  { label: "2M", value: "60d", days: 60 },
   { label: "3M", value: "90d", days: 90 },
   { label: "6M", value: "190d", days: 180 },
   { label: "1Y", value: "365d", days: 365 },
@@ -69,6 +73,19 @@ function toChartData(payload: any): ChartPoint[] {
     }));
   }
   return [];
+}
+
+// NEW: currency-aware compact money formatter (e.g., €27.5K, £18K)
+function formatMoney(n: number, currency: string) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "";
+  // compact keeps labels tidy for charts
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(v);
 }
 
 function formatXAxis(ts: number, totalDays: number) {
@@ -116,22 +133,27 @@ export default function PriceChart({
   const [range, setRange] = React.useState<string>("1d");
   const selected = RANGES.find((r) => r.value === range) ?? RANGES[0];
 
+  // NEW: pull currency from your existing context
+  const { currency } = useCurrency();
+
+  // NEW: include currency in the URL so backend returns that fiat
   const url = `/api/crypto/chart?symbol=${meta.symbol}&range=${encodeURIComponent(
     range
-  )}&interval=auto&coin=${coin}&days=${selected.days}`;
+  )}&interval=auto&currency=${currency}&coin=${coin}&days=${selected.days}`;
 
-  const { data, isLoading } = useSWR<any>(url, fetcher, { refreshInterval: 60_000 });
-  const rawPoints: ChartPoint[] = toChartData(data);
-  const chartData = rawPoints.map((p: ChartPoint) => ({
+  const { data, isLoading } = useSWR<any>(url, (u) => fetch(u).then((r) => r.json()), {
+    refreshInterval: 60_000,
+  });
+
+  const rawPoints = toChartData(data);
+  const chartData = rawPoints.map((p) => ({
     t: p.t,
     label: formatXAxis(p.t, selected.days),
     price: p.price,
   }));
 
   return (
-    <div
-      className={`rounded-2xl bg-card text-card-foreground p-4 shadow-sm ring-1 ring-border ${className}`}
-    >
+    <div className={`rounded-2xl bg-card text-card-foreground p-4 shadow-sm ring-1 ring-border ${className}`}>
       {/* Title */}
       <div className="flex items-center gap-2 mb-2">
         <Image src={meta.logo} alt={meta.name} width={20} height={20} />
@@ -193,9 +215,9 @@ export default function PriceChart({
             />
             <YAxis
               domain={["auto", "auto"]}
-              tickFormatter={(v) => formatPrice(Number(v))}
+              tickFormatter={(v) => formatMoney(Number(v), currency)}   // ← currency-aware
               orientation="right"
-              width={64}
+              width={72}
               tick={{ fill: "var(--muted-foreground)" }}
               axisLine={false}
               tickLine={false}
@@ -203,23 +225,15 @@ export default function PriceChart({
             />
 
             <Tooltip
-              formatter={(v: number) => formatPrice(v)}
-              labelFormatter={(label: any, payloadArg: unknown) => {
+              formatter={(v: number) => formatMoney(v, currency)}      // ← currency-aware
+              labelFormatter={(_, payloadArg: unknown) => {
                 const payload = payloadArg as ReadonlyArray<any>;
                 const ts = payload?.[0]?.payload?.t as number | undefined;
-                if (!ts) return String(label);
+                if (!ts) return "";
                 const d = new Date(ts);
                 return selected.days <= 3
-                  ? d.toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : d.toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    });
+                  ? d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : d.toLocaleString(undefined, { month: "short", day: "numeric" });
               }}
               contentStyle={{
                 background: "var(--popover)",
@@ -230,7 +244,6 @@ export default function PriceChart({
               labelStyle={{ color: "var(--popover-foreground)" }}
             />
 
-            {/* Gradient for underfill */}
             <defs>
               <linearGradient id={`colorGradient-${coin}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={meta.color} stopOpacity={0.4} />
@@ -238,26 +251,8 @@ export default function PriceChart({
               </linearGradient>
             </defs>
 
-            {/* Area under the line */}
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke="none"
-              fillOpacity={1}
-              fill={`url(#colorGradient-${coin})`}
-              isAnimationActive={!isLoading}
-            />
-
-            {/* Line on top */}
-            <Line
-              type="monotone"
-              dataKey="price"
-              dot={false}
-              activeDot={{ r: 4 }}
-              stroke={meta.color}
-              strokeWidth={2}
-              isAnimationActive={!isLoading}
-            />
+            <Area type="monotone" dataKey="price" stroke="none" fillOpacity={1} fill={`url(#colorGradient-${coin})`} isAnimationActive={!isLoading} />
+            <Line type="monotone" dataKey="price" dot={false} activeDot={{ r: 4 }} stroke={meta.color} strokeWidth={2} isAnimationActive={!isLoading} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

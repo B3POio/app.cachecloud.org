@@ -1,11 +1,13 @@
 // src/app/(dashboard)/dashboard/ethereum/page.tsx
 import EthereumTopTile from "@/components/toptiles/EthereumTopTile";
 import PriceChart from "@/components/charts/PriceChart";
+import { CurrencyProvider } from "@/components/Currency";
 import Image from "next/image";
 import Polymarket from "@/components/Polymarket";
 
 export default function EthereumPage() {
   return (
+    <CurrencyProvider>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-xl font-semibold">
@@ -25,5 +27,6 @@ export default function EthereumPage() {
           <Polymarket limit={8} livePrices asset="ethereum"/>
         </div>
     </div>
+    </CurrencyProvider>
   );
 }
