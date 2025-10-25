@@ -4,9 +4,16 @@ import * as React from "react";
 import Image from "next/image";
 import { Plus, Wallet, ChevronRight, Pencil, Trash2, Save, X } from "lucide-react";
 
+/* ----------------------------- Types ----------------------------- */
 type Chain = "btc" | "eth";
 type WalletItem = { id: string; chain: Chain; address: string; createdAt: number };
 
+type Metal = "gold" | "silver";
+type MetalUnit = "g" | "oz" | "lb";
+type MetalWallet = { id: string; name: string; amount: number; unit: MetalUnit };
+type InitialMetals = { gold: MetalWallet[]; silver: MetalWallet[] };
+
+/* --------------------------- API: Crypto -------------------------- */
 async function apiGetWallets(chain?: Chain) {
   const url = `/api/crypto/wallets${chain ? `?chain=${chain}` : ""}`;
   const res = await fetch(url, { credentials: "include", cache: "no-store" });
@@ -42,7 +49,57 @@ async function apiUpdateWallet(chain: Chain, oldAddress: string, newAddress: str
   return res.json();
 }
 
-export default function ClientWallets({ initialWallets }: { initialWallets: WalletItem[] }) {
+/* --------------------------- API: Metals -------------------------- */
+async function apiGetMetals(metal: Metal) {
+  const res = await fetch(`/api/metals/wallets?metal=${metal}`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<{ gold?: MetalWallet[]; silver?: MetalWallet[] }>;
+}
+async function apiSaveMetal(metal: Metal, name: string, amount: number, unit: MetalUnit) {
+  const res = await fetch(`/api/metals/wallets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ metal, name, amount, unit }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+async function apiUpdateMetal(
+  metal: Metal,
+  payload: Partial<MetalWallet> & { id: string }
+) {
+  const res = await fetch(`/api/metals/wallets`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ metal, ...payload }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+async function apiDeleteMetal(metal: Metal, id: string) {
+  const res = await fetch(
+    `/api/metals/wallets?metal=${metal}&id=${encodeURIComponent(id)}`,
+    { method: "DELETE", credentials: "include" }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/* ---------------------------- Component --------------------------- */
+export default function ClientWallets({
+  initialWallets,
+  initialMetals,
+}: {
+  initialWallets: WalletItem[];
+  initialMetals?: InitialMetals;
+}) {
+  /* ----------------------- State: Crypto ----------------------- */
   const [open, setOpen] = React.useState(false);
   const [createChain, setCreateChain] = React.useState<Chain | null>(null);
   const [address, setAddress] = React.useState("");
@@ -54,17 +111,27 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
   const [editAddress, setEditAddress] = React.useState("");
   const [editBusy, setEditBusy] = React.useState(false);
 
-  function validateAddress(chain: Chain, value: string) {
-    const v = value.trim();
-    if (!v) return "Address is required";
-    if (chain === "eth") {
-      if (!/^0x[a-fA-F0-9]{40}$/.test(v)) return "Enter a valid Ethereum address (0x...)";
-    } else {
-      if (v.length < 26) return "Enter a valid Bitcoin address";
-    }
-    return null;
-  }
+  /* ----------------------- State: Metals ----------------------- */
+  const [gold, setGold] = React.useState<MetalWallet[]>(initialMetals?.gold ?? []);
+  const [silver, setSilver] = React.useState<MetalWallet[]>(initialMetals?.silver ?? []);
 
+  // inline create for metals
+  const [createMetal, setCreateMetal] = React.useState<Metal | null>(null);
+  const [metalName, setMetalName] = React.useState("");
+  const [metalAmount, setMetalAmount] = React.useState<string>("");
+  const [metalUnit, setMetalUnit] = React.useState<MetalUnit>("g");
+  const [metalSaving, setMetalSaving] = React.useState(false);
+  const [metalMsg, setMetalMsg] = React.useState<string | null>(null);
+
+  // inline edit for metals
+  const [metalEditingId, setMetalEditingId] = React.useState<string | null>(null);
+  const [metalEditBusy, setMetalEditBusy] = React.useState(false);
+  const [metalEditName, setMetalEditName] = React.useState("");
+  const [metalEditAmount, setMetalEditAmount] = React.useState<string>("");
+  const [metalEditUnit, setMetalEditUnit] = React.useState<MetalUnit>("g");
+  const [metalEditingType, setMetalEditingType] = React.useState<Metal | null>(null); // "gold" | "silver"
+
+  /* ----------------------- Refresh helpers --------------------- */
   const refreshFromApi = React.useCallback(async () => {
     const data = await apiGetWallets();
     const btc = Array.isArray((data as any).bitcoin) ? (data as any).bitcoin : [];
@@ -88,16 +155,44 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
     setWallets(normalized);
   }, []);
 
-  React.useEffect(() => {
-    // Optional: keep the UI in sync after mutations or on mount
-    refreshFromApi().catch((e) => console.error("load wallets failed", e));
-  }, [refreshFromApi]);
+  const refreshMetals = React.useCallback(async () => {
+    const [g, s] = await Promise.all([apiGetMetals("gold"), apiGetMetals("silver")]);
+    setGold(Array.isArray(g.gold) ? g.gold : []);
+    setSilver(Array.isArray(s.silver) ? s.silver : []);
+  }, []);
 
+  React.useEffect(() => {
+    // keep crypto & metals fresh on mount
+    refreshFromApi().catch(() => {});
+    refreshMetals().catch(() => {});
+  }, [refreshFromApi, refreshMetals]);
+
+  /* ------------------------- Modal choices --------------------- */
   function handleSelect(chain: Chain) {
     setCreateChain(chain);
     setOpen(false);
     setAddress("");
     setSavedMsg(null);
+  }
+  function handleSelectMetal(metal: Metal) {
+    setCreateMetal(metal);
+    setOpen(false);
+    setMetalName("");
+    setMetalAmount("");
+    setMetalUnit("g");
+    setMetalMsg(null);
+  }
+
+  /* -------------------- Save handlers & validators -------------- */
+  function validateAddress(chain: Chain, value: string) {
+    const v = value.trim();
+    if (!v) return "Address is required";
+    if (chain === "eth") {
+      if (!/^0x[a-fA-F0-9]{40}$/.test(v)) return "Enter a valid Ethereum address (0x...)";
+    } else {
+      if (v.length < 26) return "Enter a valid Bitcoin address";
+    }
+    return null;
   }
 
   async function handleSave() {
@@ -121,6 +216,38 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
     }
   }
 
+  function validateMetalInput(name: string, amtStr: string, unit: MetalUnit) {
+    if (!name.trim()) return "Name is required";
+    const amt = Number(amtStr);
+    if (!Number.isFinite(amt) || amt <= 0) return "Amount must be a positive number";
+    if (!["g", "oz", "lb"].includes(unit)) return "Choose a valid unit";
+    return null;
+  }
+
+  async function handleSaveMetal() {
+    if (!createMetal) return;
+    const err = validateMetalInput(metalName, metalAmount, metalUnit);
+    if (err) {
+      setMetalMsg(err);
+      return;
+    }
+    setMetalSaving(true);
+    try {
+      await apiSaveMetal(createMetal, metalName.trim(), Number(metalAmount), metalUnit);
+      setMetalMsg("Saved 🪙");
+      setCreateMetal(null);
+      setMetalName("");
+      setMetalAmount("");
+      setMetalUnit("g");
+      await refreshMetals();
+    } catch (e: any) {
+      setMetalMsg(e?.message || "Failed to save");
+    } finally {
+      setMetalSaving(false);
+    }
+  }
+
+  /* ---------------------- Crypto edit/delete -------------------- */
   function startEdit(id: string) {
     const w = wallets.find((x) => x.id === id);
     if (!w) return;
@@ -145,13 +272,11 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
       await refreshFromApi();
       cancelEdit();
     } catch (e: any) {
-      console.error(e);
       alert(e?.message || "Failed to update wallet");
     } finally {
       setEditBusy(false);
     }
   }
-
   async function deleteWallet(id: string) {
     const w = wallets.find((x) => x.id === id);
     if (!w) return;
@@ -159,12 +284,63 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
     try {
       await apiDeleteWallet(w.chain, w.address);
       await refreshFromApi();
-    } catch (e) {
-      console.error(e);
+    } catch {
       alert("Failed to delete wallet");
     }
   }
 
+  /* ---------------------- Metals edit/delete -------------------- */
+  function startEditMetal(metal: Metal, id: string) {
+    const arr = metal === "gold" ? gold : silver;
+    const w = arr.find((x) => x.id === id);
+    if (!w) return;
+    setMetalEditingId(id);
+    setMetalEditingType(metal);
+    setMetalEditName(w.name);
+    setMetalEditAmount(String(w.amount));
+    setMetalEditUnit(w.unit);
+  }
+  function cancelEditMetal() {
+    setMetalEditingId(null);
+    setMetalEditingType(null);
+    setMetalEditName("");
+    setMetalEditAmount("");
+    setMetalEditUnit("g");
+  }
+  async function saveEditMetal() {
+    if (!metalEditingId || !metalEditingType) return;
+    const err = validateMetalInput(metalEditName, metalEditAmount, metalEditUnit);
+    if (err) {
+      alert(err);
+      return;
+    }
+    setMetalEditBusy(true);
+    try {
+      await apiUpdateMetal(metalEditingType, {
+        id: metalEditingId,
+        name: metalEditName.trim(),
+        amount: Number(metalEditAmount),
+        unit: metalEditUnit,
+      });
+      await refreshMetals();
+      cancelEditMetal();
+    } catch (e: any) {
+      alert(e?.message || "Failed to update metals wallet");
+    } finally {
+      setMetalEditBusy(false);
+    }
+  }
+  async function deleteMetal(metal: Metal, id: string) {
+    if (!confirm("Delete this metals wallet?")) return;
+    try {
+      await apiDeleteMetal(metal, id);
+      await refreshMetals();
+    } catch {
+      alert("Failed to delete metals wallet");
+    }
+  }
+
+  /* ----------------------- Badges & Utils ----------------------- */
   function ChainBadge({ chain }: { chain: Chain }) {
     return (
       <div className="flex items-center gap-2 rounded-full border px-2 py-1 text-xs">
@@ -179,11 +355,27 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
       </div>
     );
   }
+
+  const METAL_ICON: Record<Metal, string> = { gold: "🥇", silver: "🥈" };
+  function MetalBadge({ metal }: { metal: Metal }) {
+    return (
+      <div className="flex items-center gap-2 rounded-full border px-2 py-1 text-xs">
+        <div className="grid h-4 w-4 place-items-center text-[12px] leading-none">
+          {METAL_ICON[metal]}
+        </div>
+        <span className="uppercase font-medium">{metal}</span>
+      </div>
+    );
+  }
+
   function truncate(addr: string, n = 6) {
     if (addr.length <= n * 2 + 3) return addr;
     return `${addr.slice(0, n)}…${addr.slice(-n)}`;
   }
 
+  const hasAny = wallets.length > 0 || gold.length > 0 || silver.length > 0;
+
+  /* ----------------------------- Render ----------------------------- */
   return (
     <div className="h-full w-full p-4 md:p-6">
       {/* Header */}
@@ -200,10 +392,9 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">Add wallet</span>
         </button>
-
       </div>
 
-      {/* Inline add form when a chain is selected */}
+      {/* Inline create: Crypto */}
       {createChain && (
         <div className="mb-4 rounded-2xl border p-4">
           <div className="mb-3 flex items-center justify-between">
@@ -267,8 +458,97 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
         </div>
       )}
 
-      {/* Wallets list or empty state */}
-      {wallets.length === 0 ? (
+      {/* Inline create: Metals */}
+      {createMetal && (
+        <div className="mb-4 rounded-2xl border p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="grid h-6 w-6 place-items-center text-lg">
+                {METAL_ICON[createMetal]}
+              </div>
+              <div className="font-medium">
+                {createMetal === "gold" ? "Add Gold wallet" : "Add Silver wallet"}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setCreateMetal(null);
+                setMetalName("");
+                setMetalAmount("");
+                setMetalUnit("g");
+                setMetalMsg(null);
+              }}
+              className="text-sm text-muted-foreground hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
+
+          {/* Name */}
+          <label className="mb-1 block text-sm text-muted-foreground">Wallet name</label>
+          <input
+            value={metalName}
+            onChange={(e) => setMetalName(e.target.value)}
+            placeholder="e.g., Main Bars, Coins #1"
+            className="mb-3 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary"
+          />
+
+          {/* Amount + Unit */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm text-muted-foreground">Amount</label>
+              <input
+                value={metalAmount}
+                onChange={(e) => setMetalAmount(e.target.value)}
+                inputMode="decimal"
+                placeholder="12.5"
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-muted-foreground">Unit</label>
+              <select
+                value={metalUnit}
+                onChange={(e) => setMetalUnit(e.target.value as MetalUnit)}
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary"
+              >
+                <option value="g">grams (g)</option>
+                <option value="oz">ounces (oz)</option>
+                <option value="lb">pounds (lb)</option>
+              </select>
+            </div>
+          </div>
+
+          {metalMsg && <div className="mt-3 text-sm text-muted-foreground">{metalMsg}</div>}
+
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={handleSaveMetal}
+              disabled={metalSaving}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-60"
+            >
+              <Save className="h-4 w-4" />
+              <span className="hidden sm:inline">Save wallet</span>
+            </button>
+            <button
+              onClick={() => {
+                setCreateMetal(null);
+                setMetalName("");
+                setMetalAmount("");
+                setMetalUnit("g");
+                setMetalMsg(null);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80"
+            >
+              <X className="h-4 w-4" />
+              <span className="hidden sm:inline">Cancel</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Empty vs Combined List */}
+      {!hasAny ? (
         <div className="flex h-[60vh] items-center justify-center">
           <div className="max-w-md text-center">
             <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-muted">
@@ -281,33 +561,125 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
           </div>
         </div>
       ) : (
+        /* ----------------- ONE MERGED LIST: BTC / ETH / GOLD / SILVER ----------------- */
         <div className="grid grid-cols-1 gap-3">
-          {wallets.map((w) => (
+          {[...wallets,
+            ...gold.map((w) => ({ ...w, chain: "gold" as const })),
+            ...silver.map((w) => ({ ...w, chain: "silver" as const }))
+          ].map((w: any) => (
             <div key={w.id} className="rounded-2xl border p-4">
               <div className="flex items-center justify-between gap-3">
-                {/* Left: chain + address/input */}
+                {/* Left side: badge + field(s) */}
                 <div className="flex min-w-0 items-center gap-3">
-                  <ChainBadge chain={w.chain} />
-                  {editingId === w.id ? (
-                    <input
-                      value={editAddress}
-                      onChange={(e) => setEditAddress(e.target.value)}
-                      className="w-[55vw] sm:w-96 rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary"
-                    />
+                  {/* Badge */}
+                  {(w.chain === "btc" || w.chain === "eth") ? (
+                    <div className="flex items-center gap-2 rounded-full border px-2 py-1 text-xs">
+                      <div className="relative h-4 w-4">
+                        {w.chain === "btc" ? (
+                          <Image src="/bitcoin.svg" alt="BTC" fill className="object-contain" />
+                        ) : (
+                          <Image src="/ethereum.png" alt="ETH" fill className="object-contain" />
+                        )}
+                      </div>
+                      <span className="uppercase font-medium">{w.chain}</span>
+                    </div>
                   ) : (
-                    <div className="truncate max-w-[55vw] sm:max-w-none text-sm font-mono text-muted-foreground">
-                      {truncate(w.address)}
+                    <MetalBadge metal={w.chain as Metal} />
+                  )}
+
+                  {/* Fields (edit vs view) */}
+                  {(w.chain === "btc" || w.chain === "eth") ? (
+                    editingId === w.id ? (
+                      <input
+                        value={editAddress}
+                        onChange={(e) => setEditAddress(e.target.value)}
+                        className="w-[55vw] sm:w-96 rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary"
+                      />
+                    ) : (
+                      <div className="truncate max-w-[55vw] sm:max-w-none text-sm font-mono text-muted-foreground">
+                        {truncate(w.address)}
+                      </div>
+                    )
+                  ) : metalEditingId === w.id ? (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                      <input
+                        value={metalEditName}
+                        onChange={(e) => setMetalEditName(e.target.value)}
+                        placeholder="Wallet name"
+                        className="w-[55vw] sm:w-64 rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary"
+                      />
+                      <input
+                        value={metalEditAmount}
+                        onChange={(e) => setMetalEditAmount(e.target.value)}
+                        inputMode="decimal"
+                        placeholder="12.5"
+                        className="w-[40vw] sm:w-28 rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary"
+                      />
+                      <select
+                        value={metalEditUnit}
+                        onChange={(e) => setMetalEditUnit(e.target.value as MetalUnit)}
+                        className="w-[40vw] sm:w-28 rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus:border-transparent focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="g">g</option>
+                        <option value="oz">oz</option>
+                        <option value="lb">lb</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="truncate max-w-[55vw] sm:max-w-none text-sm text-muted-foreground">
+                      {`${w.name} — ${w.amount} ${w.unit}`}
                     </div>
                   )}
                 </div>
 
-                {/* Right: actions */}
+                {/* Right side: actions (same buttons as crypto) */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {editingId === w.id ? (
+                  {(w.chain === "btc" || w.chain === "eth") ? (
+                    editingId === w.id ? (
+                      <>
+                        <button
+                          onClick={() => saveEdit(w.id)}
+                          disabled={editBusy}
+                          aria-label="Save"
+                          className="inline-flex items-center gap-1 rounded-lg bg-primary px-2 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                        >
+                          <Save className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Save</span>
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          aria-label="Cancel"
+                          className="inline-flex items-center gap-1 rounded-lg bg-muted px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted/80"
+                        >
+                          <X className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Cancel</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => startEdit(w.id)}
+                          aria-label="Edit"
+                          className="inline-flex items-center gap-1 rounded-lg bg-muted px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted/80"
+                        >
+                          <Pencil className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+                        <button
+                          onClick={() => deleteWallet(w.id)}
+                          aria-label="Delete"
+                          className="inline-flex items-center gap-1 rounded-lg bg-destructive px-2 py-1.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          <Trash2 className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </button>
+                      </>
+                    )
+                  ) : metalEditingId === w.id ? (
                     <>
                       <button
-                        onClick={() => saveEdit(w.id)}
-                        disabled={editBusy}
+                        onClick={saveEditMetal}
+                        disabled={metalEditBusy}
                         aria-label="Save"
                         className="inline-flex items-center gap-1 rounded-lg bg-primary px-2 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                       >
@@ -315,7 +687,7 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
                         <span className="hidden sm:inline">Save</span>
                       </button>
                       <button
-                        onClick={cancelEdit}
+                        onClick={cancelEditMetal}
                         aria-label="Cancel"
                         className="inline-flex items-center gap-1 rounded-lg bg-muted px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted/80"
                       >
@@ -326,7 +698,7 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
                   ) : (
                     <>
                       <button
-                        onClick={() => startEdit(w.id)}
+                        onClick={() => startEditMetal(w.chain as Metal, w.id)}
                         aria-label="Edit"
                         className="inline-flex items-center gap-1 rounded-lg bg-muted px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted/80"
                       >
@@ -334,7 +706,7 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
                         <span className="hidden sm:inline">Edit</span>
                       </button>
                       <button
-                        onClick={() => deleteWallet(w.id)}
+                        onClick={() => deleteMetal(w.chain as Metal, w.id)}
                         aria-label="Delete"
                         className="inline-flex items-center gap-1 rounded-lg bg-destructive px-2 py-1.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
                       >
@@ -350,12 +722,14 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
         </div>
       )}
 
-      {/* Simple modal for choosing wallet type */}
+      {/* Add-wallet modal (unchanged styles) */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-lg">
             <h2 className="text-lg font-semibold mb-1">Add a wallet</h2>
-            <p className="text-sm text-muted-foreground mb-4">Choose the type of wallet you want to add.</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose the type of wallet you want to add.
+            </p>
             <div className="grid gap-3">
               <button
                 onClick={() => handleSelect("btc")}
@@ -388,7 +762,36 @@ export default function ClientWallets({ initialWallets }: { initialWallets: Wall
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5" />
               </button>
+
+              <button
+                onClick={() => handleSelectMetal("gold")}
+                className="group flex items-center justify-between rounded-xl border p-3 transition hover:bg-muted"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-6 w-6 grid place-items-center text-lg">🥇</div>
+                  <div className="text-left">
+                    <div className="font-medium">Gold</div>
+                    <div className="text-xs text-muted-foreground">Precious metal</div>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5" />
+              </button>
+
+              <button
+                onClick={() => handleSelectMetal("silver")}
+                className="group flex items-center justify-between rounded-xl border p-3 transition hover:bg-muted"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-6 w-6 grid place-items-center text-lg">🥈</div>
+                  <div className="text-left">
+                    <div className="font-medium">Silver</div>
+                    <div className="text-xs text-muted-foreground">Precious metal</div>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5" />
+              </button>
             </div>
+
             <button
               onClick={() => setOpen(false)}
               className="mt-6 w-full rounded-lg bg-muted py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80"
