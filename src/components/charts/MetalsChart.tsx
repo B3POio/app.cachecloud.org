@@ -31,10 +31,12 @@ const METAL_META: Record<
 // Match PriceChart ranges/buttons
 const RANGES = [
   { label: "1D", value: "1d", days: 1 },
+  { label: "2D", value: "2d", days: 2 },
   { label: "3D", value: "3d", days: 3 },
   { label: "1W", value: "7d", days: 7 },
   { label: "2W", value: "14d", days: 14 },
-  { label: "30D", value: "30d", days: 30 },
+  { label: "1M", value: "30d", days: 30 },
+  { label: "2M", value: "60d", days: 60 },
   { label: "3M", value: "90d", days: 90 },
   { label: "6M", value: "180d", days: 180 },
   { label: "1Y", value: "365d", days: 365 },
@@ -175,8 +177,7 @@ export default function MetalsChart({
               minTickGap={24}
               tick={{ fill: "var(--muted-foreground)" }}
               axisLine={false}
-              tickLine={false}
-              padding={{ right: 16 }}       
+              tickLine={false}     
               tickMargin={8}   
             />
             <YAxis
