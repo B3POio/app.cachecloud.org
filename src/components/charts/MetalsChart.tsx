@@ -109,7 +109,7 @@ export default function MetalsChart({
   className?: string;
 }) {
   const meta = METAL_META[metal];
-  const [range, setRange] = React.useState<string>("1d");
+  const [range, setRange] = React.useState<string>("3d");
   const selected = RANGES.find((r) => r.value === range) ?? RANGES[0];
 
   // Next.js proxy translates to backend params

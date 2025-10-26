@@ -130,7 +130,7 @@ export default function PriceChart({
   className?: string;
 }) {
   const meta = COIN_META[coin];
-  const [range, setRange] = React.useState<string>("1d");
+  const [range, setRange] = React.useState<string>("3d");
   const selected = RANGES.find((r) => r.value === range) ?? RANGES[0];
 
   // NEW: pull currency from your existing context
