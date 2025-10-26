@@ -1,23 +1,27 @@
 // src/app/(dashboard)/dashboard/silver/page.tsx
-import React, { Suspense } from "react";
-import TopTile from "@/components/SilverTopTile";
-import MetalChart from "@/components/MetalsChart";
-import Loading from "./loading";
+import React from "react";
+import TopTile from "@/components/toptiles/SilverTopTile";
+import MetalChart from "@/components/charts/MetalsChart";
+import Polymarket from "@/components/Polymarket";
 
 export default function SilverPage() {
   return (
     <div className="space-y-6">
-      <Suspense fallback={<Loading />}>
-        <TopTile />
-      </Suspense>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="lg:col-span-2">
-          <Suspense fallback={<Loading />}>
-            <MetalChart metal="silver" />
-          </Suspense>
-        </div>
+      <div className="flex items-center justify-between">
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
+          <span>Silver</span>
+        </h1>
       </div>
+        <TopTile />
+        <div className="grid grid-cols-1 gap-6">
+            <MetalChart metal="silver" />
+        </div>
+        {/* New: Polymarket section */}
+        <div className="lg:col-span-2">
+          <Polymarket limit={8} livePrices asset="silver"/>
+        </div>
     </div>
   );
 }
+
+

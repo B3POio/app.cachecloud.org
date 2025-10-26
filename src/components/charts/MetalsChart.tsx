@@ -35,7 +35,11 @@ const RANGES = [
   { label: "3D", value: "3d", days: 3 },
   { label: "1W", value: "7d", days: 7 },
   { label: "2W", value: "14d", days: 14 },
-  { label: "30D", value: "30d", days: 30 },
+  { label: "1M", value: "30d", days: 30 },
+  { label: "2M", value: "60d", days: 60 },
+  { label: "3M", value: "90d", days: 90 },
+  { label: "6M", value: "180d", days: 180 },
+  { label: "1Y", value: "365d", days: 365 },
 ];
 
 // Accept { points: [{t,o,h,l,c}] } (ISO t) OR { prices:[[t,price]] } OR { points:[{t,p}] }
@@ -105,7 +109,7 @@ export default function MetalsChart({
   className?: string;
 }) {
   const meta = METAL_META[metal];
-  const [range, setRange] = React.useState<string>("30d");
+  const [range, setRange] = React.useState<string>("3d");
   const selected = RANGES.find((r) => r.value === range) ?? RANGES[0];
 
   // Next.js proxy translates to backend params
@@ -168,13 +172,23 @@ export default function MetalsChart({
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData}>
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-            <XAxis dataKey="label" minTickGap={24} tick={{ fill: "var(--muted-foreground)" }} />
+            <XAxis
+              dataKey="label"
+              minTickGap={24}
+              tick={{ fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}     
+              tickMargin={8}   
+            />
             <YAxis
               domain={["auto", "auto"]}
               tickFormatter={(v) => formatPrice(Number(v))}
               orientation="right"
               width={64}
               tick={{ fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}
+              tickMargin={8} 
             />
             <Tooltip
               formatter={(v: number) => formatPrice(v)}

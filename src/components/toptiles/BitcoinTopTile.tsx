@@ -77,7 +77,7 @@ export default function BitcoinTopTile({ stats, fetcher, className = "" }: TileP
   }, [stats, fetcher]);
 
   const tile =
-    "rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm transition-colors";
+    "rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm transition-colors min-w-0";
 
   // New: prefer fractional change from backend (change24h),
   // fallback to older percent field by converting to fraction.
@@ -103,14 +103,14 @@ export default function BitcoinTopTile({ stats, fetcher, className = "" }: TileP
 
       <div className={tile}>
         <div className="text-sm text-muted-foreground">BTC Market Cap</div>
-        <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
+        <div className="mt-1 text-2xl font-semibold text-[var(--foreground)] truncate">
           {error ? "—" : formatCurrency(data?.marketCapUsd)}
         </div>
       </div>
 
       <div className={tile}>
         <div className="text-sm text-muted-foreground">BTC 24h Volume</div>
-        <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
+        <div className="mt-1 text-2xl font-semibold text-[var(--foreground)] truncate">
           {error ? "—" : formatCurrency(data?.volume24hUsd)}
         </div>
       </div>

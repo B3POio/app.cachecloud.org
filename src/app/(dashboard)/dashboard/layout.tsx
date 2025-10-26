@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Top Navbar */}
           <Nav />
 
-          <main className="px-4 md:px-6 lg:pr-12 py-4 md:py-6">
+          <main className="px-4 md:px-6 lg:pr-8 py-4 md:py-6">
             <div className="pt-px">{children}</div>
           </main>
         </div>

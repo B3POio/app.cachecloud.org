@@ -22,7 +22,7 @@ type TileProps = {
 };
 
 const tile =
-  "rounded-2xl border border-border bg-[var(--surface)] p-4 shadow-sm transition-colors";
+  "rounded-2xl border border-border bg-[var(--surface)] p-4 shadow-sm transition-colors min-w-0";
 
 function formatNumber(n: NullableNum) {
   if (n == null || Number.isNaN(n)) return "—";
@@ -129,7 +129,7 @@ export default function EthereumTopTile({
       {/* Market Cap */}
       <div className={tile}>
         <div className="text-sm text-muted-foreground">Market Cap</div>
-        <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
+        <div className="mt-1 text-2xl font-semibold text-[var(--foreground)] truncate">
           {error ? "—" : formatCurrency(data?.marketCapUsd)}
         </div>
       </div>
@@ -137,7 +137,7 @@ export default function EthereumTopTile({
       {/* 24h Volume */}
       <div className={tile}>
         <div className="text-sm text-muted-foreground">24h Volume</div>
-        <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
+        <div className="mt-1 text-2xl font-semibold text-[var(--foreground)] truncate">
           {error ? "—" : formatCurrency(data?.volume24hUsd)}
         </div>
       </div>

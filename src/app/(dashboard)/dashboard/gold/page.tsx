@@ -1,23 +1,29 @@
 // src/app/(dashboard)/dashboard/gold/page.tsx
-import React, { Suspense } from "react";
-import GoldTopTile from "@/components/GoldTopTile";
-import MetalChart from "@/components/MetalsChart";
-import Loading from "./loading"; // uses your spinner
+import React from "react";
+import GoldTopTile from "@/components/toptiles/GoldTopTile";
+import MetalChart from "@/components/charts/MetalsChart";
+import Polymarket from "@/components/Polymarket";
 
 export default function GoldPage() {
   return (
     <div className="space-y-6">
-      <Suspense fallback={<Loading />}>
-        <GoldTopTile />
-      </Suspense>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="lg:col-span-2">
-          <Suspense fallback={<Loading />}>
-            <MetalChart metal="gold" />
-          </Suspense>
-        </div>
+      <div className="flex items-center justify-between">
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
+          <span>Gold</span>
+        </h1>
       </div>
+        <GoldTopTile />
+        <div className="grid grid-cols-1 gap-6">
+            <MetalChart metal="gold" />
+        </div>
+        {/* New: Polymarket section */}
+        <div className="lg:col-span-2">
+          <Polymarket limit={8} livePrices asset="gold"/>
+        </div>
     </div>
   );
 }
+
+
+
+        
