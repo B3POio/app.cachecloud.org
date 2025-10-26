@@ -305,7 +305,7 @@ async function BitcoinView() {
             BTC: {new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(btcUsd)}
           </p>
         )}
-        <p className="text-sm text-gray-500">Range: {range}</p>
+        {/**<p className="text-sm text-gray-500">Range: {range}</p>**/}
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -412,7 +412,7 @@ async function EthereumView() {
             ETH: {new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(ethUsd)}
           </p>
         )}
-        <p className="text-sm text-gray-500">Range: {range}</p>
+        {/**<p className="text-sm text-gray-500">Range: {range}</p>**/}
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
