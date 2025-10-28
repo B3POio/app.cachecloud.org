@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import PortfolioChart from "@/components/charts/PortfolioChart";
+
 
 export const dynamic = "force-dynamic";
 
@@ -246,8 +248,8 @@ function CompareTile({
 
   return (
     <div className="rounded-2xl border p-4 sm:col-span-1 lg:col-span-1">
-      <div className="text-sm text-gray-500 font-medium">{label} Dominance</div>
-      <div className="text-2xl font-semibold">
+      <div className="text-sm text-gray-500 font-medium">Port Dominance</div>
+      <div className="text-lg font-semibold">
         {total > 0 ? `${pct.toFixed(1)}%` : "—"}
       </div>
     </div>
@@ -305,25 +307,32 @@ async function BitcoinView() {
             BTC: {new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(btcUsd)}
           </p>
         )}
-        {/**<p className="text-sm text-gray-500">Range: {range}</p>**/}
       </section>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label="Portfolio Value" value={btcUsd > 0 ? fmtUSD(portfolioUsd) : "—"} wide />
+      <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* First group: 2-column on mobile */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:contents">
+          <StatTile label="Portfolio Value" value={btcUsd > 0 ? fmtUSD(portfolioUsd) : "—"} wide />
+          <div className="rounded-2xl border p-4">
+            <div className="text-sm text-gray-500">Daily Change</div>
+            <div className="mt-1 text-xl font-semibold">
+              <Delta changeFraction={hasWallets ? (changeFraction ?? 0) : 0} />
+            </div>
+          </div>
+          <CompareTile btcUSD={portfolioUsd} ethUSD={other.usd} focus="btc" />
+          <Tile label="Total Transactions" value={totalTxs.toLocaleString()} />
+        </div>
+
+        {/* Remaining tiles: 1-column on mobile */}
         <Tile label="Balance" value={sats(totals.balance)} />
         <Tile label="Total Received" value={sats(totals.totalReceived)} />
         <Tile label="Total Sent" value={sats(totals.totalSent)} />
         <Tile label="Pending Δ" value={sats(totals.pendingDelta)} />
-        <Tile label="Total Transactions" value={totalTxs.toLocaleString()} />
-        <div className="rounded-2xl border p-4">
-          <div className="text-sm text-gray-500">Daily Change</div>
-          <div className="mt-1 text-xl font-semibold">
-            <Delta changeFraction={hasWallets ? (changeFraction ?? 0) : 0} />
-          </div>
-        </div>
-        {/* Context-aware percent tile (BTC focus) */}
-        <CompareTile btcUSD={portfolioUsd} ethUSD={other.usd} focus="btc" />
       </section>
+
+
+      {/* ✅ New: cumulative BTC balance chart */}
+      <PortfolioChart className="mt-2" />
 
       {wallets.length === 0 ? (
         <div className="rounded-2xl border p-6 bg-white">
@@ -467,7 +476,7 @@ function Tile({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-2xl border p-4">
       <div className="text-sm text-gray-500">{label}</div>
-      <div className="text-xl font-semibold">{value}</div>
+      <div className="text-lg font-semibold">{value}</div>
     </div>
   );
 }
@@ -476,7 +485,7 @@ function StatTile({ label, value, wide }: { label: string; value: string; wide?:
   return (
     <div className={`rounded-2xl border p-4 ${wide ? "sm:col-span-1 lg:col-span-1" : ""}`}>
       <div className="text-sm text-gray-500 font-medium">{label}</div>
-      <div className="text-2xl font-semibold mt-1">{value}</div>
+      <div className="text-lg font-semibold mt-1">{value}</div>
     </div>
   );
 }
