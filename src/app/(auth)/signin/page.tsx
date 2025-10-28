@@ -106,7 +106,7 @@ export default function SignInPage() {
             </p>
           )}
 
-          <Button type="submit" className="w-full rounded-xl py-2.5 text-sm">
+          <Button type="submit" className="w-full rounded-xl py-2.5 text-sm border-[0.5px] border-transparent dark:border-white">
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
