@@ -192,7 +192,7 @@ export default function SettingsPage() {
 
   return (
     // At the very top-level wrapper of the page
-    <div className="mx-auto max-w-3xl p-4 md:p-6 bg-background text-foreground">
+    <div className="mx-auto max-w-7xl p-4 md:p-6 bg-background text-foreground">
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-semibold tracking-tight">
         <Settings className="h-6 w-6 text-muted-foreground" />
         Settings

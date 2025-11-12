@@ -5,7 +5,7 @@ import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "Cache Cloud",
+  title: "Value Visuals",
   description: "Real Economic Data",
 };
 

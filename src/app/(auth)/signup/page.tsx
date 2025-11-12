@@ -261,13 +261,11 @@ export default function SignUpPage() {
 
           <Button
             type="submit"
-            className="w-full rounded-xl py-2.5 text-sm border-[0.5px] border-transparent dark:border-white"
+            className="w-full rounded-xl py-2.5 text-sm border border-transparent dark:border-white overflow-visible"
             disabled={loading || !firstName || !lastName || !email || !password}
           >
             {loading ? "Creating account…" : "Create account"}
           </Button>
-
-
         </form>
 
         <p className="mt-6 text-center text-sm text-[var(--muted-foreground)]">

@@ -25,7 +25,7 @@ const routes = [
   { href: "/dashboard/wallets", label: "Wallets", icon: Wallet },
 ];
 
-export default function CacheCloudNav() {
+export default function NavBar() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -58,7 +58,7 @@ export default function CacheCloudNav() {
             href="/dashboard"
             className="font-semibold tracking-tight text-xl select-none"
           >
-            Cache <span className="text-neutral-500 dark:text-neutral-400">Cloud</span>
+            Value <span className="text-neutral-500 dark:text-neutral-400">Visuals</span>
           </Link>
 
           {/* Right: Hamburger */}

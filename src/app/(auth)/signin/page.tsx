@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -16,6 +16,8 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const search = useSearchParams();
+  const expired = search.get("expired") === "1";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -105,8 +107,14 @@ export default function SignInPage() {
               {error}
             </p>
           )}
-
-          <Button type="submit" className="w-full rounded-xl py-2.5 text-sm">
+          {expired && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200
+                           dark:bg-red-900/30 dark:text-red-200 dark:ring-red-900">
+              Your session expired. Please sign in again.
+            </p>
+          )}
+          
+          <Button type="submit" className="w-full rounded-xl py-2.5 text-sm border border-transparent dark:border-white overflow-visible">
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
