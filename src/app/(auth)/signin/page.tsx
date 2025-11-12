@@ -56,9 +56,9 @@ export default function SignInPage() {
     <main className="flex min-h-screen w-full items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
       <div className="w-full max-w-md rounded-2xl bg-[var(--card)] p-8 shadow-sm ring-1 ring-[var(--border)]">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Welcome back 👋</h1>
+          <h1 className="text-3xl font-bold text-[var(--foreground)]">Welcome back</h1>
           <p className="mt-2 text-base text-[var(--muted-foreground)]">
-            Sign in to access your admin dashboard and live crypto insights.
+            Sign in - value awaits.
           </p>
         </div>
 
