@@ -1,8 +1,8 @@
-# CacheCloud App
+# Value Visuals App
 
 ## 📌 Overview
 
-CacheCloud is a web application built with **Next.js** and **TypeScript**.
+Value Visuals is a web application built with **Next.js** and **TypeScript**.
 It provides cryptocurrency market data dashboards, authentication, and theming, with Firebase integration for backend services.
 
 ---
@@ -10,7 +10,7 @@ It provides cryptocurrency market data dashboards, authentication, and theming, 
 ## 📂 Project Structure
 
 ```
-app.cachecloud.org/
+app.valuevisuals.io/
 ├── public/                         # Static assets (icons, images)
 ├── src/                            # Main application source
 │   ├── app/                        # Next.js App Router pages

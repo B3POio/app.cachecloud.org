@@ -7,7 +7,7 @@ import { ChartNoAxesCombined } from "lucide-react";
 export default function DashboardPage() {
   return (
     <CurrencyProvider>
-      <main className="space-y-6" role="main" aria-label="Dashboard overview">
+      <main className="space-y-6 mx-auto max-w-7xl" role="main" aria-label="Dashboard overview">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="flex items-center gap-2 text-xl font-semibold">

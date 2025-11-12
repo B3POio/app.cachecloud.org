@@ -6,7 +6,7 @@ import Polymarket from "@/components/Polymarket";
 
 export default function GoldPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mx-auto max-w-7xl">
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-xl font-semibold">
           <span>Gold</span>
